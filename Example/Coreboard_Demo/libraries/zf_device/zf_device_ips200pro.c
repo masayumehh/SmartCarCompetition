@@ -50,9 +50,12 @@
 
 #include "zf_common_debug.h"
 #include "zf_common_function.h"
+
+#include "zf_device_type.h"
+
 #include "zf_driver_delay.h"
 #include "zf_driver_spi.h"
-#include "zf_device_type.h"
+#include "zf_driver_spi.h"
 #include "zf_device_ips200pro.h"
 
 #pragma warning disable = 177
@@ -182,8 +185,8 @@ typedef struct
         uint16 dat[num]; \
     }nam;
 
-#define ips200pro_write_8bit_data_spi_array(dat, len)                 (spi_write_8bit_array(IPS200PRO_SPI_INDEX, (dat), (len)))
-#define ips200pro_transfer_8bit_data_spi_array(tx_data, rx_data, len)  (spi_transfer_8bit(IPS200PRO_SPI_INDEX, (tx_data), (rx_data), (len)))
+#define ips200pro_write_8bit_data_spi_array(dat, len)                  (spi_dma_write_8bit_array(IPS200PRO_SPI_INDEX, (dat), (len)))
+#define ips200pro_transfer_8bit_data_spi_array(tx_data, rx_data, len)  (spi_dma_transfer_8bit(IPS200PRO_SPI_INDEX, (tx_data), (rx_data), (len)))
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     屏幕等待函数
 // 参数说明     wait_time       等待时间
@@ -990,7 +993,7 @@ uint8 ips200pro_container_radius(uint16 container_id, uint16 border_width, uint1
 uint16 ips200pro_init(char *str, ips200pro_title_position_enum title_position, uint8 title_size)
 {
     uint16 page_id = 0;
-    spi_init(IPS200PRO_SPI_INDEX, SPI_MODE0, IPS200PRO_SPI_SPEED, IPS200PRO_CLK_PIN, IPS200PRO_MOSI_PIN, IPS200PRO_MISO_PIN, SPI_CS_NULL);
+    spi_dma_init(IPS200PRO_SPI_INDEX, SPI_MODE0, IPS200PRO_SPI_SPEED, IPS200PRO_CLK_PIN, IPS200PRO_MOSI_PIN, IPS200PRO_MISO_PIN, SPI_CS_NULL);
     gpio_init(IPS200PRO_RST_PIN, GPO, GPIO_HIGH, GPO_PUSH_PULL);
     gpio_init(IPS200PRO_CS_PIN, GPO, GPIO_HIGH, GPO_PUSH_PULL);
     // 将屏幕应答引脚修改为上拉，这样即使屏幕在使用过程中被拔掉也不会导致程序卡主

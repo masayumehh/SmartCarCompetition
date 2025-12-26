@@ -72,9 +72,9 @@ uint8 ips114_y_max = IPS_WIGHT;
 	#define ips114_write_8bit_data(dat)    soft_spi_write_8bit(&ips114_spi, dat)
 	#define ips114_write_16bit_data(dat)   soft_spi_write_16bit(&ips114_spi, dat)
 #elif (IPS114_USE_INTERFACE==HARDWARE_SPI)
-	#define ips114_write_8bit_data(dat)             spi_write_8bit(IPS114_SPI, dat)
-	#define ips114_write_16bit_data(dat)            spi_write_16bit(IPS114_SPI, dat)
-    #define ips114_write_16bit_data_array(dat, len)  spi_write_16bit_array(IPS114_SPI, dat, len)
+	#define ips114_write_8bit_data(dat)              spi_dma_write_8bit(IPS114_SPI, dat)
+	#define ips114_write_16bit_data(dat)             spi_dma_write_16bit(IPS114_SPI, dat)
+    #define ips114_write_16bit_data_array(dat, len)  spi_dma_write_16bit_array(IPS114_SPI, dat, len)
 #endif
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -652,7 +652,7 @@ void ips114_init (void)
 #elif (IPS114_USE_INTERFACE==HARDWARE_SPI)
     zf_assert(IPS114_SPI != (IPS114_SCL_PIN&0xF000>>12));
     zf_assert(IPS114_SPI != (IPS114_SDA_PIN&0xF000>>12));
-    spi_init(IPS114_SPI, SPI_MODE0, IPS114_SPI_SPEED, IPS114_SCL_PIN, IPS114_SDA_PIN, SPI_MISO_NULL, SPI_CS_NULL);
+    spi_dma_init(IPS114_SPI, SPI_MODE0, IPS114_SPI_SPEED, IPS114_SCL_PIN, IPS114_SDA_PIN, SPI_MISO_NULL, SPI_CS_NULL);
 #endif
 
     gpio_init(IPS114_DC_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);

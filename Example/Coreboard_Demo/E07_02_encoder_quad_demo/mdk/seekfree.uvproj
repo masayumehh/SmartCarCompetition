@@ -188,7 +188,7 @@
           <Target251Misc>
             <MemoryModel>4</MemoryModel>
             <RTOS>0</RTOS>
-            <RomSize>3</RomSize>
+            <RomSize>4</RomSize>
             <NearDataHold>0</NearDataHold>
             <XDataHold>0</XDataHold>
             <FarDataHold>0</FarDataHold>
@@ -230,9 +230,9 @@
                 <Size>0x20000</Size>
               </Ocm1>
               <Ocm2>
-                <Type>0</Type>
-                <StartAddress>0x0</StartAddress>
-                <Size>0x0</Size>
+                <Type>1</Type>
+                <StartAddress>0xfc4800</StartAddress>
+                <Size>0x3b800</Size>
               </Ocm2>
               <Ocm3>
                 <Type>0</Type>
@@ -455,6 +455,16 @@
               <FilePath>..\..\libraries\zf_driver\zf_driver_eeprom.h</FilePath>
             </File>
             <File>
+              <FileName>zf_driver_encoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_driver\zf_driver_encoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_driver_encoder.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_driver\zf_driver_encoder.h</FilePath>
+            </File>
+            <File>
               <FileName>zf_driver_exti.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\libraries\zf_driver\zf_driver_exti.c</FilePath>
@@ -483,6 +493,16 @@
               <FileName>zf_driver_pit.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\..\libraries\zf_driver\zf_driver_pit.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_driver_pwm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_driver\zf_driver_pwm.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_driver_pwm.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_driver\zf_driver_pwm.h</FilePath>
             </File>
             <File>
               <FileName>zf_driver_soft_iic.c</FileName>
@@ -534,41 +554,11 @@
               <FileType>5</FileType>
               <FilePath>..\..\libraries\zf_driver\zf_driver_usb_cdc.h</FilePath>
             </File>
-            <File>
-              <FileName>zf_driver_pwm.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_driver\zf_driver_pwm.c</FilePath>
-            </File>
-            <File>
-              <FileName>zf_driver_pwm.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_driver\zf_driver_pwm.h</FilePath>
-            </File>
-            <File>
-              <FileName>zf_driver_encoder.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_driver\zf_driver_encoder.c</FilePath>
-            </File>
-            <File>
-              <FileName>zf_driver_encoder.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_driver\zf_driver_encoder.h</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>zf_device</GroupName>
           <Files>
-            <File>
-              <FileName>zf_device_mt9v03x.LIB</FileName>
-              <FileType>4</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x.LIB</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_mt9v03x.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x.h</FilePath>
-            </File>
             <File>
               <FileName>zf_device_config.LIB</FileName>
               <FileType>4</FileType>
@@ -578,6 +568,26 @@
               <FileName>zf_device_config.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\..\libraries\zf_device\zf_device_config.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_mt9v03x_dma.LIB</FileName>
+              <FileType>4</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x_dma.LIB</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_mt9v03x.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_mt9v03x.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_mt9v03x_dma.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x_dma.h</FilePath>
             </File>
             <File>
               <FileName>zf_device_type.c</FileName>
@@ -600,14 +610,14 @@
               <FilePath>..\..\libraries\zf_device\zf_device_ips200.h</FilePath>
             </File>
             <File>
-              <FileName>zf_device_imu660ra.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_imu660ra.h</FilePath>
-            </File>
-            <File>
               <FileName>zf_device_imu660ra.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\libraries\zf_device\zf_device_imu660ra.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_imu660ra.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_imu660ra.h</FilePath>
             </File>
             <File>
               <FileName>zf_device_wireless_uart.c</FileName>
@@ -700,14 +710,14 @@
               <FilePath>..\..\libraries\zf_device\zf_device_ble6a20.h</FilePath>
             </File>
             <File>
-              <FileName>zf_device_ips200pro.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_ips200pro.h</FilePath>
-            </File>
-            <File>
               <FileName>zf_device_ips200pro.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\libraries\zf_device\zf_device_ips200pro.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_ips200pro.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_ips200pro.h</FilePath>
             </File>
           </Files>
         </Group>

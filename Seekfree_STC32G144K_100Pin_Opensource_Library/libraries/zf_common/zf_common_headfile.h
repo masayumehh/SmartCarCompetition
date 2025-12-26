@@ -61,6 +61,7 @@
 #include "zf_driver_gpio.h"
 #include "zf_driver_adc.h"
 #include "zf_driver_spi.h"
+#include "zf_driver_spi.h"
 #include "zf_driver_timer.h"
 #include "zf_driver_pwm.h"
 //#include "zf_driver_flash.h"
@@ -99,6 +100,7 @@
 ////#include "zf_device_gnss.h"
 //#include "zf_device_gps_tau1201.h"
 #include "zf_device_wifi_spi.h"
+#include "zf_device_mt9v03x_dma.h"
 
 ////------逐飞科技产品组件层文件
 #include "seekfree_assistant.h"

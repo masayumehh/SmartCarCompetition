@@ -119,16 +119,16 @@ static uint8 wifi_spi_wait_idle (uint32 wait_time)
 // 使用示例     内部使用，用户无需关心
 // 备注信息     
 //-------------------------------------------------------------------------------------------------------------------
-static void wifi_spi_write (const uint8 *buffer1, uint16 length1, const uint8 *buffer2, uint16 length2)
+static void wifi_spi_dma_write (const uint8 *buffer1, uint16 length1, const uint8 *buffer2, uint16 length2)
 {
     WIFI_SPI_CS(0);
     if(NULL != buffer1)
     {
-        spi_write_8bit_array(WIFI_SPI_INDEX, buffer1, length1);
+        spi_dma_write_8bit_array(WIFI_SPI_INDEX, buffer1, length1);
     }
     if(NULL != buffer2)
     {
-        spi_write_8bit_array(WIFI_SPI_INDEX, buffer2, length2);
+        spi_dma_write_8bit_array(WIFI_SPI_INDEX, buffer2, length2);
     }
     WIFI_SPI_CS(1);
 }
@@ -141,15 +141,15 @@ static void wifi_spi_write (const uint8 *buffer1, uint16 length1, const uint8 *b
 // 使用示例     内部使用，用户无需关心
 // 备注信息     
 //-------------------------------------------------------------------------------------------------------------------
-static void wifi_spi_transfer_command (wifi_spi_packets_struct *packets, uint16 length)
+static void wifi_spi_dma_transfer_command (wifi_spi_packets_struct *packets, uint16 length)
 {
     WIFI_SPI_CS(0);
     
-    spi_transfer_8bit(WIFI_SPI_INDEX, (uint8 *)&(packets->head), (uint8 *)&(packets->head), sizeof(wifi_spi_head_struct));
+    spi_dma_transfer_8bit(WIFI_SPI_INDEX, (uint8 *)&(packets->head), (uint8 *)&(packets->head), sizeof(wifi_spi_head_struct));
     
     if(length)
     {
-        spi_transfer_8bit(WIFI_SPI_INDEX, (const uint8 *)(packets->buffer), packets->buffer, length);
+        spi_dma_transfer_8bit(WIFI_SPI_INDEX, (const uint8 *)(packets->buffer), packets->buffer, length);
     }
 	// 大小端不一致，高低字节交换
     packets->head.length = (uint16)((packets->head.length&0xFF) << 8) | ((packets->head.length >> 8) & 0xFF);
@@ -166,7 +166,7 @@ static void wifi_spi_transfer_command (wifi_spi_packets_struct *packets, uint16 
 // 使用示例     内部使用，用户无需关心
 // 备注信息     
 //-------------------------------------------------------------------------------------------------------------------
-static void wifi_spi_transfer_data (const uint8 *write_data, wifi_spi_packets_struct *read_data, uint16 length)
+static void wifi_spi_dma_transfer_data (const uint8 *write_data, wifi_spi_packets_struct *read_data, uint16 length)
 {
     WIFI_SPI_CS(0);
     
@@ -174,18 +174,18 @@ static void wifi_spi_transfer_data (const uint8 *write_data, wifi_spi_packets_st
     // 大小端不一致，高低字节交换
     read_data->head.length  = (uint16)((length&0xFF) << 8) | ((length >> 8) & 0xFF);;
     
-    spi_transfer_8bit(WIFI_SPI_INDEX, (uint8 *)&(read_data->head), (uint8 *)&(read_data->head), sizeof(wifi_spi_head_struct));
+    spi_dma_transfer_8bit(WIFI_SPI_INDEX, (uint8 *)&(read_data->head), (uint8 *)&(read_data->head), sizeof(wifi_spi_head_struct));
     
     if(WIFI_SPI_RECVIVE_SIZE < length)
     {
-        spi_transfer_8bit(WIFI_SPI_INDEX, write_data, read_data->buffer, WIFI_SPI_RECVIVE_SIZE);
-        spi_write_8bit_array(WIFI_SPI_INDEX, &write_data[WIFI_SPI_RECVIVE_SIZE], length - WIFI_SPI_RECVIVE_SIZE);
+        spi_dma_transfer_8bit(WIFI_SPI_INDEX, write_data, read_data->buffer, WIFI_SPI_RECVIVE_SIZE);
+        spi_dma_write_8bit_array(WIFI_SPI_INDEX, &write_data[WIFI_SPI_RECVIVE_SIZE], length - WIFI_SPI_RECVIVE_SIZE);
     }
     else
     {
         // 将需要发送的数据拷贝到读取缓冲区，避免出现write_data越界访问
         memcpy(read_data->buffer, write_data, length);
-        spi_transfer_8bit(WIFI_SPI_INDEX, read_data->buffer, read_data->buffer, WIFI_SPI_RECVIVE_SIZE);
+        spi_dma_transfer_8bit(WIFI_SPI_INDEX, read_data->buffer, read_data->buffer, WIFI_SPI_RECVIVE_SIZE);
     }
 	
 	// 大小端不一致，高低字节交换
@@ -220,7 +220,7 @@ static uint8 wifi_spi_set_parameter (wifi_spi_packets_command_enum command, uint
             break;
         }
 
-        wifi_spi_write(&head.command, sizeof(wifi_spi_head_struct), buffer, length);
+        wifi_spi_dma_write(&head.command, sizeof(wifi_spi_head_struct), buffer, length);
         if(wifi_spi_wait_idle(wait_time))
         {
             break;
@@ -229,7 +229,7 @@ static uint8 wifi_spi_set_parameter (wifi_spi_packets_command_enum command, uint
 
         head.command = WIFI_SPI_DATA;
         head.length = 0;
-        wifi_spi_transfer_command((wifi_spi_packets_struct *)&head, head.length);
+        wifi_spi_dma_transfer_command((wifi_spi_packets_struct *)&head, head.length);
         system_delay_us(20);
         if(WIFI_SPI_REPLY_OK == head.command)
         {
@@ -262,7 +262,7 @@ static uint8 wifi_spi_get_parameter (wifi_spi_packets_command_enum command, wifi
             break;
         }
         read_data->head.command = command;
-        wifi_spi_write(&(read_data->head.command), WIFI_SPI_RECVIVE_SIZE, NULL, 0);
+        wifi_spi_dma_write(&(read_data->head.command), WIFI_SPI_RECVIVE_SIZE, NULL, 0);
 
         if(wifi_spi_wait_idle(wait_time))
         {
@@ -270,7 +270,7 @@ static uint8 wifi_spi_get_parameter (wifi_spi_packets_command_enum command, wifi
         }
         read_data->head.command = WIFI_SPI_DATA;
         read_data->head.length = 0;
-        wifi_spi_transfer_command(read_data, WIFI_SPI_RECVIVE_SIZE);
+        wifi_spi_dma_transfer_command(read_data, WIFI_SPI_RECVIVE_SIZE);
         return_state = 0;
     }while(0);
     return return_state;
@@ -504,7 +504,7 @@ uint8 wifi_spi_reset (void)
         {
             break;
         }
-        wifi_spi_write(&head.command, sizeof(wifi_spi_head_struct), NULL, 0);
+        wifi_spi_dma_write(&head.command, sizeof(wifi_spi_head_struct), NULL, 0);
     }while(0);
     
     return return_state;
@@ -536,7 +536,7 @@ uint8 wifi_spi_udp_send_now (void)
             // 立即开始socket发送
             temp_packets.head.command = WIFI_SPI_UDP_SEND;
             temp_packets.head.length = 0;
-            wifi_spi_transfer_command(&temp_packets, WIFI_SPI_RECVIVE_SIZE);
+            wifi_spi_dma_transfer_command(&temp_packets, WIFI_SPI_RECVIVE_SIZE);
             
             // 检查收到的包中是否有数据
             if((WIFI_SPI_REPLY_DATA_START == temp_packets.head.command) || (WIFI_SPI_REPLY_DATA_END == temp_packets.head.command))
@@ -557,7 +557,7 @@ uint8 wifi_spi_udp_send_now (void)
             // 接收应答信号
             temp_packets.head.command = WIFI_SPI_DATA;
             temp_packets.head.length = 0;
-            wifi_spi_transfer_command(&temp_packets, temp_packets.head.length);
+            wifi_spi_dma_transfer_command(&temp_packets, temp_packets.head.length);
             
             if(WIFI_SPI_REPLY_OK == temp_packets.head.command)
             {
@@ -601,7 +601,7 @@ uint32 wifi_spi_send_buffer (const uint8 *buffer, uint32 length)
                 break;
             }
             
-            wifi_spi_transfer_data(buffer, &temp_packets, send_length);
+            wifi_spi_dma_transfer_data(buffer, &temp_packets, send_length);
             
             // 检查收到的包中是否有数据
             if((WIFI_SPI_REPLY_DATA_START == temp_packets.head.command) || (WIFI_SPI_REPLY_DATA_END == temp_packets.head.command))
@@ -628,7 +628,7 @@ uint32 wifi_spi_send_buffer (const uint8 *buffer, uint32 length)
             // 继续读取模块剩余数据
             temp_packets.head.command = WIFI_SPI_DATA;
             temp_packets.head.length  = 0;
-            wifi_spi_transfer_command(&temp_packets, WIFI_SPI_RECVIVE_SIZE);
+            wifi_spi_dma_transfer_command(&temp_packets, WIFI_SPI_RECVIVE_SIZE);
             // 检查收到的包中是否有数据
             if((WIFI_SPI_REPLY_DATA_START == temp_packets.head.command) || (WIFI_SPI_REPLY_DATA_END == temp_packets.head.command))
             {
@@ -700,7 +700,7 @@ uint32 wifi_spi_read_buffer (uint8 *buffer, uint32 length)
             
             temp_packets.head.command = WIFI_SPI_DATA;
             temp_packets.head.length  = 0;
-            wifi_spi_transfer_command(&temp_packets, WIFI_SPI_RECVIVE_SIZE);
+            wifi_spi_dma_transfer_command(&temp_packets, WIFI_SPI_RECVIVE_SIZE);
             // 检查收到的包中是否有数据
             if( ((WIFI_SPI_REPLY_DATA_START == temp_packets.head.command) || (WIFI_SPI_REPLY_DATA_END == temp_packets.head.command)) &&
                 (temp_packets.head.length)
@@ -745,7 +745,7 @@ uint8 wifi_spi_init (char *wifi_ssid, char *pass_word)
 
 
     fifo_init(&wifi_spi_fifo, FIFO_DATA_8BIT, wifi_spi_buffer, WIFI_SPI_RECVIVE_FIFO_SIZE);
-    spi_init(WIFI_SPI_INDEX, SPI_MODE3, WIFI_SPI_SPEED, WIFI_SPI_SCK_PIN, WIFI_SPI_MOSI_PIN, WIFI_SPI_MISO_PIN, SPI_CS_NULL);//硬件SPI初始化
+    spi_dma_init(WIFI_SPI_INDEX, SPI_MODE3, WIFI_SPI_SPEED, WIFI_SPI_SCK_PIN, WIFI_SPI_MOSI_PIN, WIFI_SPI_MISO_PIN, SPI_CS_NULL);//硬件SPI初始化
 
     gpio_init(WIFI_SPI_CS_PIN,  GPO, 1, GPO_PUSH_PULL);
     gpio_init(WIFI_SPI_RST_PIN, GPO, 1, GPO_PUSH_PULL);
@@ -768,8 +768,7 @@ uint8 wifi_spi_init (char *wifi_ssid, char *pass_word)
         {
             break;
         }
-   
-        printf("2\r\n");       
+      
         // MAC地址信息以字符串形式保存在wifi_spi_mac_addr数组中
         wifi_spi_get_mac_addr();
 

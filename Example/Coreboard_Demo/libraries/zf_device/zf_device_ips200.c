@@ -72,9 +72,9 @@ uint16 ips200_y_max = IPS_WIGHT;
 	#define ips200_write_8bit_data(dat)    soft_spi_write_8bit(&ips200_spi, dat)
 	#define ips200_write_16bit_data(dat)   soft_spi_write_16bit(&ips200_spi, dat)
 #elif (IPS200_USE_INTERFACE==HARDWARE_SPI)
-	#define ips200_write_8bit_data(dat)                 spi_write_8bit(IPS200_SPI, dat)
-	#define ips200_write_16bit_data(dat)                spi_write_16bit(IPS200_SPI, dat)
-    #define ips200_write_16bit_data_array(dat, len)      spi_write_16bit_array(IPS200_SPI, dat, len)
+	#define ips200_write_8bit_data(dat)                  spi_dma_write_8bit(IPS200_SPI, dat)
+	#define ips200_write_16bit_data(dat)                 spi_dma_write_16bit(IPS200_SPI, dat)
+    #define ips200_write_16bit_data_array(dat, len)      spi_dma_write_16bit_array(IPS200_SPI, dat, len)
 
 #endif
 
@@ -627,13 +627,13 @@ void ips200_init (void)
 #elif (IPS200_USE_INTERFACE==HARDWARE_SPI)
     zf_assert(IPS200_SPI != (IPS200_SCL_PIN&0xF000>>12));
     zf_assert(IPS200_SPI != (IPS200_SDA_PIN&0xF000>>12));
-    spi_init(IPS200_SPI, SPI_MODE0, IPS200_SPI_SPEED, IPS200_SCL_PIN, IPS200_SDA_PIN, SPI_MISO_NULL, SPI_CS_NULL);
+    spi_dma_init(IPS200_SPI, SPI_MODE0, IPS200_SPI_SPEED, IPS200_SCL_PIN, IPS200_SDA_PIN, SPI_MISO_NULL, SPI_CS_NULL);
 #endif
 
-   gpio_init(IPS200_DC_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);
-   gpio_init(IPS200_RST_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);
-   gpio_init(IPS200_CS_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);
-   gpio_init(IPS200_BLK_PIN, GPO, GPIO_HIGH, GPO_PUSH_PULL);
+    gpio_init(IPS200_DC_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);
+    gpio_init(IPS200_RST_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);
+    gpio_init(IPS200_CS_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);
+    gpio_init(IPS200_BLK_PIN, GPO, GPIO_HIGH, GPO_PUSH_PULL);
 
     ips200_set_dir(ips200_display_dir);
     ips200_set_color(ips200_pencolor, ips200_bgcolor);

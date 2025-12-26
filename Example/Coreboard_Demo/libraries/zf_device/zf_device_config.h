@@ -41,11 +41,6 @@ extern const unsigned char imu660ra_config_file[8192];
 extern const unsigned char dl1b_config_file[135];
 
 
-unsigned char   mt9v03x_sccb_check_id           (void *);
-unsigned char   mt9v03x_sccb_set_config         (const short int buff[10][2]);
-unsigned char   mt9v03x_sccb_set_exposure_time  (unsigned short int light);
-unsigned char   mt9v03x_sccb_set_reg            (unsigned char addr, unsigned short int dat);
-
 
 #endif
 

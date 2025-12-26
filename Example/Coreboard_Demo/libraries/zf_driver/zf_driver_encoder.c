@@ -127,15 +127,74 @@ void encoder_clear_count(encoder_index_enum encoder_n)
     }
 }
 
+
 //-------------------------------------------------------------------------------------------------------------------
-// 函数简介     编码器解码初始化
+// 函数简介     定时器编码器解码初始化
+// 参数说明     encoder_n        PWM通道
+// 参数说明     ch1_pin          通道A以及引脚
+// 参数说明     ch2_pin          通道B以及引脚
+// 返回参数     void
+// 备注信息     
+// 使用示例     内部使用，用户无需关心
+// 备注信息     仅支持正交编码器
+//-------------------------------------------------------------------------------------------------------------------
+static void tim_encoder_dir_init(encoder_index_enum encoder_n, gpio_pin_enum dir_pin, encoder_channel_enum lsb_pin)
+{
+    // 如果程序在输出了断言信息 并且提示出错位置在这里
+    // 就去查看你在什么地方调用这个函数 检查你的传入参数
+    // 这里是检查是否有重复使用定时器
+	// TIM2已经给串口用作波特率发生器了。不能再初始化为其他的。
+	zf_assert(timer_funciton_check(encoder_n & 0xFF, TIMER_FUNCTION_ENCODER));
+
+    // 传入的引脚错误
+    zf_assert(((uint16)lsb_pin >> 13) == 6);
+    gpio_init(dir_pin & 0xFF, GPI, 0, GPI_PULL_UP);
+    gpio_init(lsb_pin & 0xFF, GPI, 0, GPI_PULL_UP);
+    encoder_dir_pin[encoder_n & 0x0F] = (uint8)dir_pin;
+    switch(encoder_n)
+    {
+        case TIM0_ENCODER:  TL0=0;  TH0=0;  TMOD|=0x04; TR0=1; break;
+        case TIM1_ENCODER:  TL1=0;  TH1=0;  TMOD|=0x40; TR1=1; break;
+        case TIM2_ENCODER:  T2L=0;  T2H=0;  AUXR|=0x18; break;
+        case TIM3_ENCODER:  T3L=0;  T3H=0;  T4T3M|=0x0c; break;
+        case TIM4_ENCODER:  T4L=0;  T4H=0;  T4T3M|=0xc0; break;
+        case TIM5_ENCODER:  T5L=0;  T5H=0;  T6T5M|=0x0c; break;
+        case TIM6_ENCODER:  T6L=0;  T6H=0;  T6T5M|=0xc0; break;
+        case TIM7_ENCODER:  T7L=0;  T7H=0;  T8T7M|=0x0c; break;
+        case TIM8_ENCODER:  T8L=0;  T8H=0;  T8T7M|=0xc0; break;
+        case TIM9_ENCODER:  T9L=0;  T9H=0;  T10T9M|=0x0c; break;
+        case TIM10_ENCODER: T10L=0; T10H=0; T10T9M|=0xc0; break;
+        case TIM11_ENCODER: T11L=0; T11H=0; T11CR|=0xc0; break;
+        case TIM17_ENCODER: T17L=0; T17H=0; T18T17M|=0x0c; break;
+        case TIM18_ENCODER: T18L=0; T18H=0; T18T17M|=0xc0; break;
+        default: zf_assert(0); break;            
+    
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     PWM编码器解码初始化
+// 参数说明     encoder_n        PWM通道
+// 参数说明     ch1_pin          通道A以及引脚
+// 参数说明     ch2_pin          通道B以及引脚
+// 返回参数     void
+// 使用示例     内部使用，用户无需关心
+// 备注信息     支持带方向编码器和正交编码器              
+//-------------------------------------------------------------------------------------------------------------------
+static void pwm_encoder_dir_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pin, encoder_channel_enum ch2_pin)
+{
+    encoder_quad_init(encoder_n, ch1_pin, ch2_pin);
+}
+
+
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     正交编码器解码初始化
 // 参数说明     timer_ch      定时器枚举体
 // 参数说明     phaseA      通道A以及引脚
 // 参数说明     phaseB      通道B以及引脚
 // 返回参数     void
-// 备注信息    推荐使用正交解码编码器。
-// 使用示例    encoder_init_quad(TIM1_ENCODER, TIM1_CH1_ENCODER_E9, TIM1_CH2_ENCODER_E11)
-//          // 使用定时器1 做正交编码器解码， 通道1引脚号E9，通道2引脚号E11
+// 使用示例             encoder_init_dir(PWMA_ENCODER, PWMA_ENCODER_CH1P_P60, PWMA_ENCODER_CH2P_P62)
+//                      // 使用PWMA 做正交解码使用， 通道1脉冲信号引脚P60，通道2脉冲信号引脚P62
+// 备注信息                                
 //-------------------------------------------------------------------------------------------------------------------
 void encoder_quad_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pin, encoder_channel_enum ch2_pin)
 {
@@ -186,55 +245,17 @@ void encoder_quad_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pi
       
 }
 
-static void tim_encoder_dir_init(encoder_index_enum encoder_n, gpio_pin_enum dir_pin, encoder_channel_enum lsb_pin)
-{
-    // 如果程序在输出了断言信息 并且提示出错位置在这里
-    // 就去查看你在什么地方调用这个函数 检查你的传入参数
-    // 这里是检查是否有重复使用定时器
-	// TIM2已经给串口用作波特率发生器了。不能再初始化为其他的。
-	zf_assert(timer_funciton_check(encoder_n & 0xFF, TIMER_FUNCTION_ENCODER));
-
-    // 传入的引脚错误
-    zf_assert(((uint16)lsb_pin >> 13) == 6);
-    gpio_init(dir_pin & 0xFF, GPI, 0, GPI_PULL_UP);
-    gpio_init(lsb_pin & 0xFF, GPI, 0, GPI_PULL_UP);
-    encoder_dir_pin[encoder_n & 0x0F] = (uint8)dir_pin;
-    switch(encoder_n)
-    {
-        case TIM0_ENCODER:  TL0=0;  TH0=0;  TMOD|=0x04; TR0=1; break;
-        case TIM1_ENCODER:  TL1=0;  TH1=0;  TMOD|=0x40; TR1=1; break;
-        case TIM2_ENCODER:  T2L=0;  T2H=0;  AUXR|=0x18; break;
-        case TIM3_ENCODER:  T3L=0;  T3H=0;  T4T3M|=0x0c; break;
-        case TIM4_ENCODER:  T4L=0;  T4H=0;  T4T3M|=0xc0; break;
-        case TIM5_ENCODER:  T5L=0;  T5H=0;  T6T5M|=0x0c; break;
-        case TIM6_ENCODER:  T6L=0;  T6H=0;  T6T5M|=0xc0; break;
-        case TIM7_ENCODER:  T7L=0;  T7H=0;  T8T7M|=0x0c; break;
-        case TIM8_ENCODER:  T8L=0;  T8H=0;  T8T7M|=0xc0; break;
-        case TIM9_ENCODER:  T9L=0;  T9H=0;  T10T9M|=0x0c; break;
-        case TIM10_ENCODER: T10L=0; T10H=0; T10T9M|=0xc0; break;
-        case TIM11_ENCODER: T11L=0; T11H=0; T11CR|=0xc0; break;
-        case TIM17_ENCODER: T17L=0; T17H=0; T18T17M|=0x0c; break;
-        case TIM18_ENCODER: T18L=0; T18H=0; T18T17M|=0xc0; break;
-        default: zf_assert(0); break;            
-    
-    }
-}
-
-static void pwm_encoder_dir_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pin, encoder_channel_enum ch2_pin)
-{
-    encoder_quad_init(encoder_n, ch1_pin, ch2_pin);
-}
-
-
 //-------------------------------------------------------------------------------------------------------------------
-// 函数简介     编码器解码初始化
+// 函数简介     带方向编码器初始化
 // 参数说明     timer_ch        定时器枚举体
 // 参数说明     phaseA          通道A以及引脚
 // 参数说明     phaseB          通道B以及引脚
 // 返回参数     void
-//          推荐使用正交解码编码器。
-// 使用示例      encoder_init_dir(TIM1_ENCODER, TIM1_CH1_ENCODER_E9, TIM1_CH2_ENCODER_E11)
-//                              // 使用定时器1 做带方向的编码器解码， 通道1方向信号引脚E9，通道2脉冲信号引脚E11
+// 备注信息   
+// 使用示例     encoder_init_dir(PWMA_ENCODER, PWMA_ENCODER_CH1P_P60, PWMA_ENCODER_CH2P_P62)
+//             // 使用PWMA 做正交解码使用， 通道1方向信号引脚P60，通道2脉冲信号引脚P62
+//             encoder_init_dir(TIM17_ENCODER, IO_P45, TIM17_ENCODER_CH1_P80)
+//             // 使用TIM17_ENCODER 做正交解码使用， 通道1方向信号引脚P45，通道2脉冲信号引脚P80
 //-------------------------------------------------------------------------------------------------------------------
 void encoder_dir_init(uint16 encoder_n, uint16 dir_pin, uint16 lsb_pin)
 {

@@ -32,15 +32,12 @@
 * 日期              作者           备注
 * 2025-11-20        大W            first version
 ********************************************************************************************************************/
+#pragma warning disable = 47
 
-#ifndef _zf_device_config_h_
-#define _zf_device_config_h_
+#include "zf_common_debug.h"
+#include "zf_common_clock.h"
+#include "zf_driver_gpio.h"
+#include "zf_driver_spi.h"
 
-extern const unsigned char image_frame_header[4];
-extern const unsigned char imu660ra_config_file[8192];
-extern const unsigned char dl1b_config_file[135];
-
-
-
-#endif
-
+#pragma warning disable = 183
+#pragma warning disable = 177

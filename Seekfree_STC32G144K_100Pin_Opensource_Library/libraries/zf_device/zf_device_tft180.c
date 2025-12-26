@@ -72,9 +72,9 @@ uint8 tft180_y_max = TFT180_WIGHT;
 	#define tft180_write_8bit_data(dat)    soft_spi_write_8bit(&TFT180_spi, dat)
 	#define tft180_write_16bit_data(dat)   soft_spi_write_16bit(&TFT180_spi, dat)
 #elif (TFT180_USE_INTERFACE==HARDWARE_SPI)
-	#define tft180_write_8bit_data(dat)             spi_write_8bit(TFT180_SPI, dat)
-	#define tft180_write_16bit_data(dat)            spi_write_16bit(TFT180_SPI, dat)
-    #define tft180_write_16bit_data_arry(dat, len)  spi_write_16bit_array(TFT180_SPI, dat, len)
+	#define tft180_write_8bit_data(dat)             spi_dma_write_8bit(TFT180_SPI, dat)
+	#define tft180_write_16bit_data(dat)            spi_dma_write_16bit(TFT180_SPI, dat)
+    #define tft180_write_16bit_data_arry(dat, len)  spi_dma_write_16bit_array(TFT180_SPI, dat, len)
 #endif
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -585,7 +585,7 @@ void tft180_init (void)
 #if (TFT180_USE_INTERFACE==SOFT_SPI)  
     soft_spi_init(&tft180_spi, SPI_MODE0, TFT180_SOFT_SPI_DELAY, TFT180_SCL_PIN, TFT180_SDA_PIN, SOFT_SPI_PIN_NULL, SOFT_SPI_PIN_NULL);
 #elif (TFT180_USE_INTERFACE==HARDWARE_SPI)
-    spi_init(TFT180_SPI, SPI_MODE0, TFT180_SPI_SPEED, TFT180_SCL_PIN, TFT180_SDA_PIN, SPI_MISO_NULL, SPI_CS_NULL);
+    spi_dma_init(TFT180_SPI, SPI_MODE0, TFT180_SPI_SPEED, TFT180_SCL_PIN, TFT180_SDA_PIN, SPI_MISO_NULL, SPI_CS_NULL);
 #endif
 
     gpio_init(TFT180_DC_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);

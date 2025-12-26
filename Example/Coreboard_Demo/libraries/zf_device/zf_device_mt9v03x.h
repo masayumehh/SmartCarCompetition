@@ -43,41 +43,27 @@
 
 
 // 仅支持IIC配置
-#define MT9V03X_COF_IIC_DELAY   ( 10 )                               // 总钻风 IIC 延时
+#define MT9V03X_COF_IIC_DELAY   ( 0 )                              // 总钻风 IIC 延时
 #define MT9V03X_COF_IIC_SCL     ( IO_P50 )                          // 总钻风 IIC-SCL 引脚
 #define MT9V03X_COF_IIC_SDA     ( IO_P51 )                          // 总钻风 IIC-SDA 引脚
 
 // 总钻风引脚，禁止修改
-#define MT9V03X_DATA_PIN        ( IO_P20 )                          
-#define FIFO_VSY_PIN            ( IO_P33 )
-#define FIFO_RCK_PIN            ( IO_P44 )
-#define FIFO_WEN_PIN            ( IO_P41 )
-#define FIFO_WRST_PIN           ( IO_P73 )
-#define FIFO_REN_PIN            ( IO_P72 )
-#define FIFO_RRST_PIN           ( IO_P43 )
-
-#define FIFO_VSY                ( P33 )
-#define FIFO_RCK                ( P44 )
-#define FIFO_WEN                ( P41 )
-#define FIFO_WRST               ( P73 )
-#define FIFO_REN                ( P72 )
-#define FIFO_RRST               ( P43 )
+#define MT9V03X_DATA_PIN        ( IO_P20 )                          // DO-D7对应P20-P27
 
 #define MT9V03X_INIT_TIMEOUT    (400)                          	    // 默认的摄像头初始化超时时间 毫秒为单位
 
 //--------------------------------------------------------------------------------------------------
 // 摄像头默认参数配置 在此修改摄像头配置
 //--------------------------------------------------------------------------------------------------
-#define MT9V03X_W               ( 188 )                           	// 图像宽度     范围 [1-188]
-#define MT9V03X_H               ( 120 )                           	// 图像高度     范围 [1-120]
+#define MT9V03X_W               ( 188 )                           	// 图像宽度   不允许修改，默认值188
+#define MT9V03X_H               ( 120 )                           	// 图像高度   不允许修改，默认值120
 #define MT9V03X_IMAGE_SIZE      ( MT9V03X_W * MT9V03X_H )           // 整体图像大小不能超过 65535
-#define MT9V03X_COF_BUFFER_SIZE ( 64  )                             // 配置串口缓冲区大小 不低于 64
 
 #define MT9V03X_AUTO_EXP_DEF    ( 0  )                           	// 自动曝光设置     默认不开启自动曝光设置  范围 [0-63] 0为关闭
 																	//                  如果自动曝光开启  EXP_TIME命令设置自动曝光时间的上限
 																	//                  一般情况是不需要开启自动曝光设置 如果遇到光线非常不均匀的情况可以尝试设置自动曝光，增加图像稳定性
 #define MT9V03X_EXP_TIME_DEF    ( 512)                           	// 曝光时间         摄像头收到后会自动计算出最大曝光时间，如果设置过大则设置为计算出来的最大曝光值
-#define MT9V03X_FPS_DEF         ( 50 )                           	// 图像帧率         摄像头收到后会自动计算出最大FPS，如果过大则设置为计算出来的最大FPS
+#define MT9V03X_FPS_DEF         ( 100 )                           	// 图像帧率         摄像头收到后会自动计算出最大FPS，如果过大则设置为计算出来的最大FPS
 #define MT9V03X_LR_OFFSET_DEF   ( 0  )                           	// 图像左右偏移量   正值 右偏移   负值 左偏移  列为188 376 752时无法设置偏移
 																	//                  摄像头收偏移数据后会自动计算最大偏移，如果超出则设置计算出来的最大偏移
 #define MT9V03X_UD_OFFSET_DEF   ( 0  )                           	// 图像上下偏移量   正值 上偏移   负值 下偏移  行为120 240 480时无法设置偏移
@@ -89,25 +75,25 @@
 // 摄像头命令枚举
 typedef enum
 {
-    MT9V03X_INIT = 0,                              						// 摄像头初始化命令
-    MT9V03X_AUTO_EXP = 1,                              						// 自动曝光命令
-    MT9V03X_EXP_TIME = 2,                              						// 曝光时间命令
-    MT9V03X_FPS = 3,                                   						// 摄像头帧率命令
-    MT9V03X_SET_COL = 4,                               						// 图像列命令
-    MT9V03X_SET_ROW = 5,                               						// 图像行命令
-    MT9V03X_LR_OFFSET = 6,                             						// 图像左右偏移命令
-    MT9V03X_UD_OFFSET = 7,                             						// 图像上下偏移命令
-    MT9V03X_GAIN = 8,                                  						// 图像偏移命令
-    MT9V03X_PCLK_MODE = 9,                             						// 像素时钟模式命令(仅总钻风MT9V034 V1.5以及以上版本支持该命令)
-    MT9V03X_CONFIG_FINISH = 10,                         						// 非命令位，主要用来占位计数
+    MT9V03X_INIT = 0,                              				    // 摄像头初始化命令
+    MT9V03X_AUTO_EXP = 1,                              		        // 自动曝光命令
+    MT9V03X_EXP_TIME = 2,                              		        // 曝光时间命令
+    MT9V03X_FPS = 3,                                   		        // 摄像头帧率命令
+    MT9V03X_SET_COL = 4,                               		        // 图像列命令
+    MT9V03X_SET_ROW = 5,                               		        // 图像行命令
+    MT9V03X_LR_OFFSET = 6,                             		        // 图像左右偏移命令
+    MT9V03X_UD_OFFSET = 7,                             		        // 图像上下偏移命令
+    MT9V03X_GAIN = 8,                                  		        // 图像偏移命令
+    MT9V03X_PCLK_MODE = 9,                             		        // 像素时钟模式命令(仅总钻风MT9V034 V1.5以及以上版本支持该命令)
+    MT9V03X_CONFIG_FINISH = 10,                         	        // 非命令位，主要用来占位计数
 						
     MT9V03X_COLOR_GET_WHO_AM_I = 0xEF,						
-    MT9V03X_SET_EXP_TIME = 0XF0,                   						// 单独设置曝光时间命令
-    MT9V03X_GET_STATUS,                            						// 获取摄像头配置命令
-    MT9V03X_GET_VERSION,                           						// 固件版本号命令
-						
-    MT9V03X_SET_ADDR = 0XFE,                       						// 寄存器地址命令
-    MT9V03X_SET_DATA                               						// 寄存器数据命令
+    MT9V03X_SET_EXP_TIME = 0XF0,                   				    // 单独设置曝光时间命令
+    MT9V03X_GET_STATUS,                            				    // 获取摄像头配置命令
+    MT9V03X_GET_VERSION,                           				    // 固件版本号命令
+                            
+    MT9V03X_SET_ADDR = 0XFE,                       				    // 寄存器地址命令
+    MT9V03X_SET_DATA                               				    // 寄存器数据命令
 }m9v03x_cmd_enum;
 
 
@@ -117,7 +103,6 @@ typedef enum
     MT9V03X_UART,
     MT9V03X_SCCB,
 }mt9v03x_type_enum;
-
 
 extern vuint8 far mt9v03x_finish_flag;
 extern uint8  far mt9v03x_image[MT9V03X_H][MT9V03X_W];
