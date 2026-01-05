@@ -55,7 +55,7 @@
 #define BLE6A20_BUAD_RATE    		  ( 115200 )                    	// 蓝牙串口对应使用的串口波特率,
 #define BLE6A20_TX_PIN       		  ( UART8_RX_P92 )      			// 蓝牙串口对应模块的 TX 要接到单片机的 RX
 #define BLE6A20_RX_PIN       		  ( UART8_TX_P93 )           		// 蓝牙串口对应模块的 RX 要接到单片机的 TX
-#define BLE6A20_RTS_PIN      		  ( IO_P91 )                   	// 蓝牙串口对应模块的 RTS 引脚
+#define BLE6A20_RTS_PIN      		  ( IO_P94 )                   	    // 蓝牙串口对应模块的 RTS 引脚
 									  
 #define BLE6A20_BUFFER_SIZE        	  ( 64 )
 #define BLE6A20_TIMEOUT_COUNT      	  ( 100 )

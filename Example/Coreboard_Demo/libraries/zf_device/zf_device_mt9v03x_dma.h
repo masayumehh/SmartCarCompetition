@@ -7,7 +7,7 @@
 
 // Òý½Å½ûÖ¹ÐÞ¸Ä
 #define         FIFO_VSY_PIN                    ( IO_P33 )
-#define         FIFO_RCK_PIN                    ( IO_P44 )
+#define         FIFO_RCK_PIN                    ( IO_P37 )
 #define         FIFO_WE_PIN                     ( IO_P41 )
 #define         FIFO_WRST_PIN                   ( IO_P73 )
 #define         FIFO_OE_PIN                     ( IO_P72 )

@@ -56,9 +56,9 @@
           
 #define WIFI_SPI_INDEX              ( SPI_2 )                   // 定义使用的SPI号
 #define WIFI_SPI_SPEED              ( 48 * 1000 * 1000 )        // 硬件 SPI 速率
-#define WIFI_SPI_SCK_PIN            ( SPI2_CH1_SCLK_P67 )       // 定义SPI_SCK引脚
-#define WIFI_SPI_MOSI_PIN           ( SPI2_CH1_MOSI_P65 )       // 定义SPI_MOSI引脚
-#define WIFI_SPI_MISO_PIN           ( SPI2_CH1_MISO_P66 )       // 定义SPI_MISO引脚  IPS没有MISO引脚，但是这里任然需要定义，在spi的初始化时需要使用
+#define WIFI_SPI_SCK_PIN            ( SPI2_CH4_SCLK_P83 )       // 定义SPI_SCK引脚
+#define WIFI_SPI_MOSI_PIN           ( SPI2_CH4_MOSI_P81 )       // 定义SPI_MOSI引脚
+#define WIFI_SPI_MISO_PIN           ( SPI2_CH4_MISO_P82 )       // 定义SPI_MISO引脚  IPS没有MISO引脚，但是这里任然需要定义，在spi的初始化时需要使用
 #define WIFI_SPI_CS_PIN             ( IO_P64 )                  // 定义SPI_CS引脚 采用软件CS引脚
 #define WIFI_SPI_INT_PIN            ( IO_P15 )                  // 定义中断引脚
 #define WIFI_SPI_RST_PIN            ( IO_P47 )                  // 定义复位引脚

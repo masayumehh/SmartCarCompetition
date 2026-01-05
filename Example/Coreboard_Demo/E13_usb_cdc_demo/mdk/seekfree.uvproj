@@ -13,14 +13,14 @@
       <uAC6>0</uAC6>
       <TargetOption>
         <TargetCommonOption>
-          <Device>STC32G144K-32Bit Series</Device>
+          <Device>AI8052U-32Bit Series</Device>
           <Vendor>AI</Vendor>
           <Cpu>IRAM(0-0x3FFF) XRAM(0x10000-0x2FFFF) IROM(0xFC0000-0xFFFFFF) CLOCK(35000000)</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile>"LIB\STARTUP251.ASM" ("80251 Startup Code")</StartupFile>
           <FlashDriverDll></FlashDriverDll>
           <DeviceId>4096</DeviceId>
-          <RegisterFile>STC32G144K.H</RegisterFile>
+          <RegisterFile>zf_common_headfile.h</RegisterFile>
           <MemoryEnv></MemoryEnv>
           <Cmp></Cmp>
           <Asm></Asm>
@@ -295,7 +295,7 @@
             <WarningLevel>2</WarningLevel>
             <DataOverlaying>1</DataOverlaying>
             <OverlayString></OverlayString>
-            <MiscControls>REMOVEUNUSED</MiscControls>
+            <MiscControls>REMOVEUNUSED,NOOVERLAY</MiscControls>
             <DisableWarningNumbers>57,16,7,25</DisableWarningNumbers>
             <LinkerCmdFile></LinkerCmdFile>
             <Assign></Assign>
@@ -560,36 +560,6 @@
           <GroupName>zf_device</GroupName>
           <Files>
             <File>
-              <FileName>zf_device_config.LIB</FileName>
-              <FileType>4</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_config.LIB</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_config.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_config.h</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_mt9v03x_dma.LIB</FileName>
-              <FileType>4</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x_dma.LIB</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_mt9v03x.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x.h</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_mt9v03x.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x.c</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_mt9v03x_dma.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x_dma.h</FilePath>
-            </File>
-            <File>
               <FileName>zf_device_type.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\libraries\zf_device\zf_device_type.c</FilePath>
@@ -600,84 +570,34 @@
               <FilePath>..\..\libraries\zf_device\zf_device_type.h</FilePath>
             </File>
             <File>
-              <FileName>zf_device_ips200.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_ips200.c</FilePath>
+              <FileName>zf_device_config.LIB</FileName>
+              <FileType>4</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_config.LIB</FilePath>
             </File>
             <File>
-              <FileName>zf_device_ips200.h</FileName>
+              <FileName>zf_device_config.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_ips200.h</FilePath>
+              <FilePath>..\..\libraries\zf_device\zf_device_config.h</FilePath>
             </File>
             <File>
-              <FileName>zf_device_imu660ra.c</FileName>
+              <FileName>zf_device_mt9v03x.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_imu660ra.c</FilePath>
+              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x.c</FilePath>
             </File>
             <File>
-              <FileName>zf_device_imu660ra.h</FileName>
+              <FileName>zf_device_mt9v03x.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_imu660ra.h</FilePath>
+              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x.h</FilePath>
             </File>
             <File>
-              <FileName>zf_device_wireless_uart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_wireless_uart.c</FilePath>
+              <FileName>zf_device_mt9v03x_dma.LIB</FileName>
+              <FileType>4</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x_dma.LIB</FilePath>
             </File>
             <File>
-              <FileName>zf_device_wireless_uart.h</FileName>
+              <FileName>zf_device_mt9v03x_dma.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_wireless_uart.h</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_wifi_spi.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_wifi_spi.c</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_wifi_spi.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_wifi_spi.h</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_dl1a.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_dl1a.c</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_dl1a.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_dl1a.h</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_dl1b.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_dl1b.c</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_dl1b.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_dl1b.h</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_imu660rb.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_imu660rb.c</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_imu660rb.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_imu660rb.h</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_imu963ra.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_imu963ra.c</FilePath>
-            </File>
-            <File>
-              <FileName>zf_device_imu963ra.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_imu963ra.h</FilePath>
+              <FilePath>..\..\libraries\zf_device\zf_device_mt9v03x_dma.h</FilePath>
             </File>
             <File>
               <FileName>zf_device_ips114.c</FileName>
@@ -700,14 +620,14 @@
               <FilePath>..\..\libraries\zf_device\zf_device_tft180.h</FilePath>
             </File>
             <File>
-              <FileName>zf_device_ble6a20.c</FileName>
+              <FileName>zf_device_ips200.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_ble6a20.c</FilePath>
+              <FilePath>..\..\libraries\zf_device\zf_device_ips200.c</FilePath>
             </File>
             <File>
-              <FileName>zf_device_ble6a20.h</FileName>
+              <FileName>zf_device_ips200.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\..\libraries\zf_device\zf_device_ble6a20.h</FilePath>
+              <FilePath>..\..\libraries\zf_device\zf_device_ips200.h</FilePath>
             </File>
             <File>
               <FileName>zf_device_ips200pro.c</FileName>
@@ -718,6 +638,86 @@
               <FileName>zf_device_ips200pro.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\..\libraries\zf_device\zf_device_ips200pro.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_ble6a20.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_ble6a20.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_ble6a20.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_ble6a20.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_wifi_spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_wifi_spi.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_wifi_spi.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_wifi_spi.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_wireless_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_wireless_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_wireless_uart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_wireless_uart.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_dl1a.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_dl1a.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_dl1a.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_dl1a.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_dl1b.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_dl1b.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_dl1b.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_dl1b.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_imu660ra.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_imu660ra.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_imu660ra.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_imu660ra.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_imu660rb.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_imu660rb.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_imu660rb.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_imu660rb.h</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_imu963ra.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_imu963ra.c</FilePath>
+            </File>
+            <File>
+              <FileName>zf_device_imu963ra.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\libraries\zf_device\zf_device_imu963ra.h</FilePath>
             </File>
           </Files>
         </Group>

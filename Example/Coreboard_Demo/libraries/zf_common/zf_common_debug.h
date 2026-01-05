@@ -50,7 +50,7 @@
     #define DEBUG_UART_RX_PIN           (UART1_RX_P36 )                        	    // 指定 debug uart 所使用的的串口引脚
 #endif
 
-#define DEBUG_UART_USE_INTERRUPT    (1)                                         // 是否启用 debug uart 接收中断
+#define DEBUG_UART_USE_INTERRUPT    (1)                                             // 是否启用 debug uart 接收中断
 
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     断言

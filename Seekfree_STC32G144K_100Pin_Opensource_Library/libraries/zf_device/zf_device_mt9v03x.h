@@ -43,14 +43,21 @@
 
 
 // 仅支持IIC配置
-#define MT9V03X_COF_IIC_DELAY   ( 0 )                              // 总钻风 IIC 延时
-#define MT9V03X_COF_IIC_SCL     ( IO_P50 )                          // 总钻风 IIC-SCL 引脚
-#define MT9V03X_COF_IIC_SDA     ( IO_P51 )                          // 总钻风 IIC-SDA 引脚
+#define MT9V03X_COF_IIC_DELAY   ( 0 )                               // 总钻风 IIC 延时
+#define MT9V03X_COF_IIC_SCL     ( IO_PB6 )                          // 总钻风 IIC-SCL 引脚
+#define MT9V03X_COF_IIC_SDA     ( IO_PB7 )                          // 总钻风 IIC-SDA 引脚
 
-// 总钻风引脚，禁止修改
-#define MT9V03X_DATA_PIN        ( IO_P20 )                          // DO-D7对应P20-P27
+// 总钻风数据引脚，禁止修改
+#define MT9V03X_D0_PIN          ( IO_P20 )                          // D0对应P20
+#define MT9V03X_D1_PIN          ( IO_P21 )                          // D1对应P21
+#define MT9V03X_D2_PIN          ( IO_P22 )                          // D2对应P22
+#define MT9V03X_D3_PIN          ( IO_P23 )                          // D3对应P23
+#define MT9V03X_D4_PIN          ( IO_P24 )                          // D4对应P24
+#define MT9V03X_D5_PIN          ( IO_P25 )                          // D5对应P25
+#define MT9V03X_D6_PIN          ( IO_P26 )                          // D6对应P26
+#define MT9V03X_D7_PIN          ( IO_P27 )                          // D7对应P27
 
-#define MT9V03X_INIT_TIMEOUT    (400)                          	    // 默认的摄像头初始化超时时间 毫秒为单位
+#define MT9V03X_INIT_TIMEOUT    ( 400 )                          	// 默认的摄像头初始化超时时间 毫秒为单位
 
 //--------------------------------------------------------------------------------------------------
 // 摄像头默认参数配置 在此修改摄像头配置

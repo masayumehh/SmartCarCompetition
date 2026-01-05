@@ -55,19 +55,19 @@
 // 需要注意的是 DL1B 最高支持 400KHz 的 IIC 通信速率
 // 需要注意的是 DL1B 最高支持 400KHz 的 IIC 通信速率
 
-#define DL1B_USE_INTERFACE           SOFT_IIC                                       // 默认使用软件 IIC 方式驱动 建议使用软件 IIC 方式
-#if (DL1B_USE_INTERFACE==SOFT_IIC)                                                           // 这两段 颜色正常的才是正确的 颜色灰的就是没有用的
+#define DL1B_USE_INTERFACE           SOFT_IIC                                   // 默认使用软件 IIC 方式驱动 建议使用软件 IIC 方式
+#if (DL1B_USE_INTERFACE==SOFT_IIC)                                              // 这两段 颜色正常的才是正确的 颜色灰的就是没有用的
 //====================================================软件 IIC 驱动====================================================
-	#define DL1B_SOFT_IIC_DELAY         ( 0 )                                      // 软件 IIC 的时钟延时周期 数值越小 IIC 通信速率越快
-	#define DL1B_SCL_PIN                ( IO_P61 )                                      // 软件 IIC SCL 引脚 连接 DL1B 的 SCL 引脚
-	#define DL1B_SDA_PIN                ( IO_P63 )                                      // 软件 IIC SDA 引脚 连接 DL1B 的 SDA 引脚
+	#define DL1B_SOFT_IIC_DELAY         ( 0 )                                   // 软件 IIC 的时钟延时周期 数值越小 IIC 通信速率越快
+	#define DL1B_SCL_PIN                ( IO_P61 )                              // 软件 IIC SCL 引脚 连接 DL1B 的 SCL 引脚
+	#define DL1B_SDA_PIN                ( IO_P63 )                              // 软件 IIC SDA 引脚 连接 DL1B 的 SDA 引脚
 //====================================================软件 IIC 驱动====================================================
 #elif (DL1B_USE_INTERFACE==HARDWARE_IIC)
 //====================================================硬件 IIC 驱动====================================================
-	#define DL1B_IIC_SPEED              ( 40 * 1000  )                              // 硬件 IIC 通信速率 最高 400KHz 不建议低于 40KHz
-	#define DL1B_IIC                    ( 暂不支持          )                       // 硬件 IIC SCL 引脚 连接 DL1B 的 SCL 引脚
-	#define DL1B_SCL_PIN                ( 暂不支持          )                       // 硬件 IIC SCL 引脚 连接 DL1B 的 SCL 引脚
-	#define DL1B_SDA_PIN                ( 暂不支持          )                       // 硬件 IIC SDA 引脚 连接 DL1B 的 SDA 引脚
+	#define DL1B_IIC_SPEED              ( 40 * 1000  )                          // 硬件 IIC 通信速率 最高 400KHz 不建议低于 40KHz
+	#define DL1B_IIC                    ( 暂不支持  )                            // 硬件 IIC SCL 引脚 连接 DL1B 的 SCL 引脚
+	#define DL1B_SCL_PIN                ( 暂不支持  )                            // 硬件 IIC SCL 引脚 连接 DL1B 的 SCL 引脚
+	#define DL1B_SDA_PIN                ( 暂不支持  )                            // 硬件 IIC SDA 引脚 连接 DL1B 的 SDA 引脚
 //====================================================硬件 IIC 驱动====================================================
 #endif
 

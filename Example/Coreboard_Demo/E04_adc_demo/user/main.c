@@ -63,10 +63,10 @@
 #define ADC_CHANNEL2            ( ADC2_CH1_P01 )
 #define ADC_CHANNEL3            ( ADC2_CH2_P02 )
 #define ADC_CHANNEL4            ( ADC2_CH3_P03 )
-#define ADC_CHANNEL5            ( ADC2_CH4_P04 )
-#define ADC_CHANNEL6            ( ADC2_CH5_P05 )
-#define ADC_CHANNEL7            ( ADC2_CH6_P06 )
-#define ADC_CHANNEL8            ( ADC2_CH7_P07 )
+#define ADC_CHANNEL5            ( ADC2_CH6_P06 )
+#define ADC_CHANNEL6            ( ADC2_CH7_P07 )
+#define ADC_CHANNEL7            ( ADC1_CH1_P11 )
+#define ADC_CHANNEL8            ( ADC1_CH4_P14 )
 
 
 uint8 channel_index = 0;

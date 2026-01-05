@@ -54,8 +54,8 @@
 #include "zf_common_typedef.h"
 #include "zf_device_type.h"
 
-#define TFT180_USE_INTERFACE             (HARDWARE_SPI)                                         // 默认使用硬件 SPI 方式驱动 建议使用硬件 SPI 方式驱动
-#if (TFT180_USE_INTERFACE==SOFT_SPI)                                                         // 这两段 颜色正常的才是正确的 颜色灰的就是没有用的
+#define TFT180_USE_INTERFACE             (HARDWARE_SPI)                             // 默认使用硬件 SPI 方式驱动 建议使用硬件 SPI 方式驱动
+#if (TFT180_USE_INTERFACE==SOFT_SPI)                                                // 这两段 颜色正常的才是正确的 颜色灰的就是没有用的
 //====================================================软件 SPI 驱动====================================================
 	// 暂不支持
 //====================================================软件 SPI 驱动====================================================
@@ -63,20 +63,20 @@
 //====================================================硬件 SPI 驱动====================================================
 	#define TFT180_SPI_SPEED                ((uint32)48 * 1000 * 1000U)             // 硬件 SPI 速率 这里设置为系统时钟二分频
 	#define TFT180_SPI                      (SPI_2)                                 // 硬件 SPI 号
-	#define TFT180_SCL_PIN                  (SPI2_CH1_SCLK_P67)                     // 硬件 SPI SCK 引脚
-	#define TFT180_SDA_PIN                  (SPI2_CH1_MOSI_P65)                     // 硬件 SPI MOSI 引脚
+	#define TFT180_SCL_PIN                  (SPI2_CH4_SCLK_P83)                     // 硬件 SPI SCK 引脚
+	#define TFT180_SDA_PIN                  (SPI2_CH4_MOSI_P81)                     // 硬件 SPI MOSI 引脚
 //====================================================硬件 SPI 驱动====================================================
 #endif
 
-#define TFT180_RES_PIN                  ( IO_P70 )                                    // 液晶复位引脚定义
-#define TFT180_DC_PIN                   ( IO_P71 )                                    // 液晶命令位引脚定义
-#define TFT180_CS_PIN                   ( IO_P35 )                                    // CS 片选引脚
-#define TFT180_BL_PIN                   ( IO_P66 )                                    // 液晶背光引脚定义
+#define TFT180_RES_PIN                  ( IO_P70 )                                  // 液晶复位引脚定义
+#define TFT180_DC_PIN                   ( IO_P71 )                                  // 液晶命令位引脚定义
+#define TFT180_CS_PIN                   ( IO_P35 )                                  // CS 片选引脚
+#define TFT180_BL_PIN                   ( IO_P82 )                                  // 液晶背光引脚定义
 
-#define TFT180_RES(x)                   (gpio_set_level(TFT180_RES_PIN, x ))
-#define TFT180_DC(x)                    (gpio_set_level(TFT180_DC_PIN , x ))
-#define TFT180_CS(x)                    (gpio_set_level(TFT180_CS_PIN , x ))
-#define TFT180_BL(x)                    (gpio_set_level(TFT180_BL_PIN , x ))
+#define TFT180_RES(x)                   ( P70 = x )
+#define TFT180_DC(x)                    ( P71 = x )
+#define TFT180_CS(x)                    ( P35 = x )
+#define TFT180_BL(x)                    ( P82 = x )
 
 typedef enum
 {

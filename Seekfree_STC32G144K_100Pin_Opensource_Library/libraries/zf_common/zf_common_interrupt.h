@@ -45,7 +45,7 @@ typedef enum
 {
 	INT0_IRQn = 0x00,
 	TIMER0_IRQn = 0x01,
-	// INT1_IRQn,
+	INT1_IRQn,
 	TIMER1_IRQn = 0x03,
 	// UART1_IRQn,
 	// ADC_IRQn,

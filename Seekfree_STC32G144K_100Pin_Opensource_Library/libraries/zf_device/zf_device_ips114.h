@@ -63,25 +63,25 @@
 //====================================================硬件 SPI 驱动====================================================
 	#define IPS114_SPI_SPEED                ((uint32)48 * 1000 * 1000U)             // 硬件 SPI 速率 这里设置为系统时钟二分频
 	#define IPS114_SPI                      (SPI_2)                                 // 硬件 SPI 号
-	#define IPS114_SCL_PIN                  (SPI2_CH1_SCLK_P67)                     // 硬件 SPI SCK 引脚
-	#define IPS114_SDA_PIN                  (SPI2_CH1_MOSI_P65)                     // 硬件 SPI MOSI 引脚
+	#define IPS114_SCL_PIN                  (SPI2_CH4_SCLK_P83)                     // 硬件 SPI SCK 引脚
+	#define IPS114_SDA_PIN                  (SPI2_CH4_MOSI_P81)                     // 硬件 SPI MOSI 引脚
 //====================================================硬件 SPI 驱动====================================================
 #endif
 
 #define IPS114_RST_PIN                  (IO_P70 )                                   // 液晶复位引脚定义
 #define IPS114_DC_PIN                   (IO_P71 )                                   // 液晶命令位引脚定义
 #define IPS114_CS_PIN                   (IO_P35 )                                   // CS 片选引脚
-#define IPS114_BLK_PIN                  (IO_P66 )                                   // 液晶背光引脚定义
+#define IPS114_BLK_PIN                  (IO_P82 )                                   // 液晶背光引脚定义
 
 #define IPS114_DEFAULT_DISPLAY_DIR      (IPS114_CROSSWISE_180)                  	// 默认的显示方向
 #define IPS114_DEFAULT_PENCOLOR         (RGB565_RED)                            	// 默认的画笔颜色
 #define IPS114_DEFAULT_BGCOLOR          (RGB565_WHITE)                          	// 默认的背景颜色
 //#define IPS114_DEFAULT_DISPLAY_FONT     (IPS114_8X16_FONT)                      	// 默认的字体模式
 
-#define IPS114_RST(x)                   ( gpio_set_level(IPS114_RST_PIN , x ) )
-#define IPS114_DC(x)                    ( gpio_set_level(IPS114_DC_PIN  , x ) )
-#define IPS114_CS(x)                    ( gpio_set_level(IPS114_CS_PIN  , x ) )
-#define IPS114_BLK(x)                   ( gpio_set_level(IPS114_BLK_PIN , x ) )
+#define IPS114_RST(x)                   ( P70 = x )
+#define IPS114_DC(x)                    ( P71 = x )
+#define IPS114_CS(x)                    ( P35 = x )
+#define IPS114_BLK(x)                   ( P82 = x )
 
 typedef enum
 {

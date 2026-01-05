@@ -64,10 +64,10 @@
 //====================================================软件 IIC 驱动====================================================
 #elif (DL1A_USE_INTERFACE==HARDWARE_IIC)
 //====================================================硬件 IIC 驱动====================================================
-	#define DL1A_IIC_SPEED              ( 40*1000   )                    	// 硬件 IIC 通信速率 最高 400KHz 不建议低于 40KHz
-	#define DL1A_IIC                    ( 暂不支持       )               	// 硬件 IIC SCL 引脚 连接 DL1A 的 SCL 引脚
-	#define DL1A_SCL_PIN                ( 暂不支持       )               	// 硬件 IIC SCL 引脚 连接 DL1A 的 SCL 引脚
-	#define DL1A_SDA_PIN                ( 暂不支持       )               	// 硬件 IIC SDA 引脚 连接 DL1A 的 SDA 引脚
+	#define DL1A_IIC_SPEED              ( 40*1000 )                    	// 硬件 IIC 通信速率 最高 400KHz 不建议低于 40KHz
+	#define DL1A_IIC                    ( 暂不支持  )               	// 硬件 IIC SCL 引脚 连接 DL1A 的 SCL 引脚
+	#define DL1A_SCL_PIN                ( 暂不支持  )               	// 硬件 IIC SCL 引脚 连接 DL1A 的 SCL 引脚
+	#define DL1A_SDA_PIN                ( 暂不支持  )               	// 硬件 IIC SDA 引脚 连接 DL1A 的 SDA 引脚
 //====================================================硬件 IIC 驱动====================================================
 #endif
 

@@ -63,13 +63,13 @@
 #define IMU660RB_USE_INTERFACE       HARDWARE_SPI                       // 默认使用硬件 SPI 方式驱动
 #if (IMU660RB_USE_INTERFACE==HARDWARE_SPI)
 //====================================================硬件 SPI 驱动====================================================
-	#define IMU660RB_SPI_SPEED          ((uint32)10 * 1000 * 1000U)  	// 硬件 SPI 速率
-	#define IMU660RB_SPI                SPI_3                        	// 硬件 SPI 号
-	#define IMU660RB_SPC_PIN            SPI3_CH3_SCLK_P87             	// 硬件 SPI SCK 引脚
-	#define IMU660RB_SDI_PIN            SPI3_CH3_MOSI_P85             	// 硬件 SPI MOSI 引脚
-	#define IMU660RB_SDO_PIN            SPI3_CH3_MISO_P86              	// 硬件 SPI MISO 引脚
-	#define IMU660RB_CS_PIN             (IO_P84)                       	// CS 片选引脚
-	#define IMU660RB_CS(x)              ((x) ? (gpio_high(IMU660RB_CS_PIN)) : (gpio_low(IMU660RB_CS_PIN)))
+	#define IMU660RB_SPI_SPEED          ( 10 * 1000 * 1000UL )  	    // 硬件 SPI 速率
+	#define IMU660RB_SPI                ( SPI_3             )          	// 硬件 SPI 号
+	#define IMU660RB_SPC_PIN            ( SPI3_CH3_SCLK_P87 )           // 硬件 SPI SCK 引脚
+	#define IMU660RB_SDI_PIN            ( SPI3_CH3_MOSI_P85 )           // 硬件 SPI MOSI 引脚
+	#define IMU660RB_SDO_PIN            ( SPI3_CH3_MISO_P86 )           // 硬件 SPI MISO 引脚
+	#define IMU660RB_CS_PIN             ( IO_P34 )                      // CS 片选引脚
+	#define IMU660RB_CS(x)              ( P34 = x )
 //====================================================硬件 SPI 驱动====================================================
 #elif (IMU660RB_USE_INTERFACE==SOFT_SPI)
 //====================================================软件 SPI 驱动====================================================

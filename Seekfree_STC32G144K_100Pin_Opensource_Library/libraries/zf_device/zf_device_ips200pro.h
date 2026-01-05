@@ -54,11 +54,11 @@
 #include "zf_common_typedef.h"
 
 
-#define IPS200PRO_SPI_SPEED      			    ( 40*1000*1000UL      	)   // 硬件 SPI 速率
+#define IPS200PRO_SPI_SPEED      			    ( 48*1000*1000UL      	)   // 硬件 SPI 速率
 #define IPS200PRO_SPI_INDEX                	    ( SPI_2         		)   // 硬件 SPI 号
-#define IPS200PRO_CLK_PIN                  	    ( SPI2_CH1_SCLK_P67  	)   // 硬件 SPI SCK 引脚
-#define IPS200PRO_MOSI_PIN                 	    ( SPI2_CH1_MOSI_P65  	)   // 硬件 SPI MOSI 引脚
-#define IPS200PRO_MISO_PIN                 	    ( SPI2_CH1_MISO_P66		)   // 硬件 SPI MISO 引脚
+#define IPS200PRO_CLK_PIN                  	    ( SPI2_CH4_SCLK_P83  	)   // 硬件 SPI SCK 引脚
+#define IPS200PRO_MOSI_PIN                 	    ( SPI2_CH4_MOSI_P81  	)   // 硬件 SPI MOSI 引脚
+#define IPS200PRO_MISO_PIN                 	    ( SPI2_CH4_MISO_P82		)   // 硬件 SPI MISO 引脚
 #define IPS200PRO_RST_PIN                  	    ( IO_P70             	)   // 液晶复位引脚定义
 #define IPS200PRO_INT_PIN                  	    ( IO_P71             	)   // 液晶命令位引脚定义
 #define IPS200PRO_CS_PIN                   	    ( IO_P35             	)   // CS 片选引脚
@@ -68,6 +68,10 @@
 #define IPS200PRO_DEFAULT_FORMAT                ( IPS200PRO_FORMAT_GBK  )  	// 默认编码格式，会在初始化屏幕的时候进行设置
 #define IPS200PRO_DEFAULT_FONT_SIZE             ( FONT_SIZE_16      	)   // 默认指定大小，会在初始化屏幕的时候进行设置
 #define IPS200PRO_DEFAULT_OPTIMIZE              ( 1                 	)   // 0:关闭优化 1：开启优化，默认开启优化，会在初始化屏幕的时候进行设置
+
+#define IPS200PRO_INT()                         ( P71 )
+#define IPS200PRO_CS(x)                         ( P35 = x )
+
 
 // RGB888转RGB565宏定义
 #define IPS200PRO_RGB888_TO_RGB565(r8, g8, b8)  ((((r8 >> 3) & 0x1FU) << 11) | (((g8 >> 2) & 0x3FU) << 5) |  ((b8 >> 3) & 0x1FU))

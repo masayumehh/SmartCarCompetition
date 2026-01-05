@@ -65,7 +65,7 @@ typedef enum
 }tof_type_enum;
 
 #define	SOFT_IIC 		(0)
-#define SOFT_SPI 		(1)                                                              // 无设备
+#define SOFT_SPI 		(1)                                                     // 无设备
 #define	HARDWARE_IIC 	(2)
 #define	HARDWARE_SPI 	(3)
 

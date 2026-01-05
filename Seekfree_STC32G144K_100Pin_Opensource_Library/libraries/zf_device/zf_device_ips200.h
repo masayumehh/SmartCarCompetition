@@ -54,34 +54,34 @@
 #include "zf_common_typedef.h"
 #include "zf_device_type.h"
 
-#define IPS200_USE_INTERFACE             (HARDWARE_SPI)                                     // 默认使用硬件 SPI 方式驱动 建议使用硬件 SPI 方式驱动
-#if (IPS200_USE_INTERFACE==SOFT_SPI)                                                          // 这两段 颜色正常的才是正确的 颜色灰的就是没有用的
+#define IPS200_USE_INTERFACE             (HARDWARE_SPI)                         // 默认使用硬件 SPI 方式驱动 建议使用硬件 SPI 方式驱动
+#if (IPS200_USE_INTERFACE==SOFT_SPI)                                            // 这两段 颜色正常的才是正确的 颜色灰的就是没有用的
 //====================================================软件 SPI 驱动====================================================
 	// 暂不支持
 //====================================================软件 SPI 驱动====================================================
 #elif (IPS200_USE_INTERFACE==HARDWARE_SPI)
 //====================================================硬件 SPI 驱动====================================================
-	#define IPS200_SPI_SPEED                ((uint32)48 * 1000 * 1000U)             // 硬件 SPI 速率 这里设置为系统时钟二分频
-	#define IPS200_SPI                      (SPI_2)                                 // 硬件 SPI 号
-	#define IPS200_SCL_PIN                  (SPI2_CH1_SCLK_P67)                     // 硬件 SPI SCK 引脚
-	#define IPS200_SDA_PIN                  (SPI2_CH1_MOSI_P65)                     // 硬件 SPI MOSI 引脚
+	#define IPS200_SPI_SPEED                ((uint32)48 * 1000 * 1000U)         // 硬件 SPI 速率 这里设置为系统时钟二分频
+	#define IPS200_SPI                      (SPI_2)                             // 硬件 SPI 号
+	#define IPS200_SCL_PIN                  (SPI2_CH4_SCLK_P83)                 // 硬件 SPI SCK 引脚
+	#define IPS200_SDA_PIN                  (SPI2_CH4_MOSI_P81)                 // 硬件 SPI MOSI 引脚
 //====================================================硬件 SPI 驱动====================================================
 #endif
 
-#define IPS200_RST_PIN                  (IO_P70 )                                   // 液晶复位引脚定义
-#define IPS200_DC_PIN                   (IO_P71 )                                   // 液晶命令位引脚定义
-#define IPS200_CS_PIN                   (IO_P35 )                                   // CS 片选引脚
-#define IPS200_BLK_PIN                  (IO_P66 )                                   // 液晶背光引脚定义
+#define IPS200_RST_PIN                  (IO_P70 )                               // 液晶复位引脚定义
+#define IPS200_DC_PIN                   (IO_P71 )                               // 液晶命令位引脚定义
+#define IPS200_CS_PIN                   (IO_P35 )                               // CS 片选引脚
+#define IPS200_BLK_PIN                  (IO_P82 )                               // 液晶背光引脚定义
 
 #define IPS200_DEFAULT_DISPLAY_DIR      (IPS200_PORTAIT)                  		// 默认的显示方向
 #define IPS200_DEFAULT_PENCOLOR         (RGB565_RED)                            // 默认的画笔颜色
 #define IPS200_DEFAULT_BGCOLOR          (RGB565_WHITE)                          // 默认的背景颜色
-//#define IPS200_DEFAULT_DISPLAY_FONT     (IPS200_8X16_FONT)                      // 默认的字体模式
+//#define IPS200_DEFAULT_DISPLAY_FONT     (IPS200_8X16_FONT)                    // 默认的字体模式
 
-#define IPS200_RST(x)					( gpio_set_level(IPS200_RST_PIN , x ) )
-#define IPS200_DC(x)                    ( gpio_set_level(IPS200_DC_PIN  , x ) )
-#define IPS200_CS(x)                    ( gpio_set_level(IPS200_CS_PIN  , x ) )
-#define IPS200_BLK(x)                   ( gpio_set_level(IPS200_BLK_PIN , x ) )
+#define IPS200_RST(x)					( P70 = x )
+#define IPS200_DC(x)                    ( P71 = x )
+#define IPS200_CS(x)                    ( P35 = x )
+#define IPS200_BLK(x)                   ( P82 = x )                                              
 
 typedef enum
 {

@@ -198,7 +198,7 @@ static uint8 ips200pro_wait_idle (uint32 wait_time)
 {
     wait_time = wait_time * 100;
 
-    while(0 == gpio_get_level(IPS200PRO_INT_PIN) && (0 != wait_time))
+    while(0 == IPS200PRO_INT() && (0 != wait_time))
     {
         func_soft_delay(1000);
         wait_time--;
@@ -230,11 +230,11 @@ uint8 ips200pro_send_buffer(const void *buffer, uint32 length, uint32 time_out, 
         &&  (IPS200PRO_SPI_LENGTH >= length)                           	// 数据量未超过限制
         &&  (NULL != buffer))                                       	// 指针不为空
     {
-        gpio_low(IPS200PRO_CS_PIN);
+        IPS200PRO_CS(0);
         ips200pro_write_8bit_data_spi_array((const uint8 *)buffer, length);
         if(1 == end_flag)
         {
-            gpio_high(IPS200PRO_CS_PIN);
+            IPS200PRO_CS(1);
         }
         return_state = 0;
     }
@@ -250,9 +250,9 @@ uint8 ips200pro_receive_buffer(void *buffer, uint32 length, uint32 time_out)
         &&  (IPS200PRO_SPI_LENGTH >= length)                           	// 数据量未超过限制
         &&  (NULL != buffer))                                       	// 指针不为空
     {
-        gpio_low(IPS200PRO_CS_PIN);
+        IPS200PRO_CS(0);
         ips200pro_transfer_8bit_data_spi_array((const uint8 *)buffer, (uint8 *)buffer, length);
-        gpio_high(IPS200PRO_CS_PIN);
+        IPS200PRO_CS(1);
         return_state = 0;
     }
 
@@ -298,7 +298,7 @@ uint8 ips200pro_write_packet(ips200pro_command1_enum command1, ips200pro_command
     }
     else
     {
-        gpio_high(IPS200PRO_CS_PIN);
+        IPS200PRO_CS(1);
     }
     return return_state;
 }

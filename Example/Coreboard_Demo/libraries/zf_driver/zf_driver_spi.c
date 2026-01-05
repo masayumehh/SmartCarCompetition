@@ -683,7 +683,7 @@ void spi_dma_init(spi_index_enum spi_n, spi_mode_enum mode, uint32 baud, spi_pin
 
         case SPI_3:
         {
-            P_SWX4 &= ~(0x03 << 0); // 清除SPI_3引脚选择位
+            P_SWX4 &= ~(0x03 << 2); // 清除SPI_3引脚选择位
             switch((sck_pin >> 8) & 0x03) 
             {
                 case 0: P_SWX4 |= 0x00 << 2; break;
@@ -748,9 +748,7 @@ void spi_write_dat(spi_index_enum spi_n, const uint8 dat)
 		case SPI_2:
             SPI2STAT = 0xc0;              
 			SPI2DAT = dat;				
-			// while (!(SPI2STAT & 0x80));  
-            while ((HSSPI2_STA & 0x08));  
-
+			while (!(SPI2STAT & 0x80));
 			break;     
         case SPI_3:
             SPI3STAT = 0xc0;              
@@ -1178,11 +1176,13 @@ void spi_init(spi_index_enum spi_n, spi_mode_enum mode, uint32 baud, spi_pin_enu
             SPCTL |= (1 << 7) | (1 << 4); // 忽略SS引脚 + 主机模式
             
             spi_psc = system_clock / baud;
-            if(spi_psc > 8) SPCTL |= 0x02;  // 时钟/16
-            else if(spi_psc > 4) SPCTL |= 0x01; // 时钟/8
-            else if(spi_psc > 2) SPCTL |= 0x00; // 时钟/4
-            else SPCTL |= 0x03; // 时钟/2
+//            if(spi_psc > 8) SPCTL |= 0x02;  // 时钟/16
+//            else if(spi_psc > 4) SPCTL |= 0x01; // 时钟/8
+//            else if(spi_psc > 2) SPCTL |= 0x00; // 时钟/4
+//            else SPCTL |= 0x03; // 时钟/2
+            
 
+            SPI_CLKDIV = spi_psc / 2 + 1;
             // 配置SPI_1极性相位
             switch(mode) 
             {
@@ -1210,11 +1210,12 @@ void spi_init(spi_index_enum spi_n, spi_mode_enum mode, uint32 baud, spi_pin_enu
             SPI2CTL |= (1 << 7) | (1 << 4); // 忽略SS引脚 + 主机模式
             
             spi_psc = system_clock / baud;
-            if(spi_psc > 8) SPI2CTL |= 0x02;  // 时钟/16
-            else if(spi_psc > 4) SPI2CTL |= 0x01; // 时钟/8
-            else if(spi_psc > 2) SPI2CTL |= 0x00; // 时钟/4
-            else SPI2CTL |= 0x03; // 时钟/2
+//            if(spi_psc > 8) SPI2CTL |= 0x02;  // 时钟/16
+//            else if(spi_psc > 4) SPI2CTL |= 0x01; // 时钟/8
+//            else if(spi_psc > 2) SPI2CTL |= 0x00; // 时钟/4
+//            else SPI2CTL |= 0x03; // 时钟/2
 
+            SPI2_CLKDIV = spi_psc / 2 + 1;
             // 配置SPI_2极性相位
             switch(mode) 
             {
@@ -1229,7 +1230,7 @@ void spi_init(spi_index_enum spi_n, spi_mode_enum mode, uint32 baud, spi_pin_enu
 
         case SPI_3:
         {
-            P_SWX4 &= ~(0x03 << 0); // 清除SPI_3引脚选择位
+            P_SWX4 &= ~(0x03 << 2); // 清除SPI_3引脚选择位
             switch((sck_pin >> 8) & 0x03) 
             {
                 case 0: P_SWX4 |= 0x00 << 2; break;
@@ -1242,11 +1243,13 @@ void spi_init(spi_index_enum spi_n, spi_mode_enum mode, uint32 baud, spi_pin_enu
             SPI3CTL |= (1 << 7) | (1 << 4); // 忽略SS引脚 + 主机模式
             
             spi_psc = system_clock / baud;
-            if(spi_psc > 8) SPI3CTL |= 0x02;  // 时钟/16
-            else if(spi_psc > 4) SPI3CTL |= 0x01; // 时钟/8
-            else if(spi_psc > 2) SPI3CTL |= 0x00; // 时钟/4
-            else SPI3CTL |= 0x03; // 时钟/2
+//            if(spi_psc > 8) SPI3CTL |= 0x02;  // 时钟/16
+//            else if(spi_psc > 4) SPI3CTL |= 0x01; // 时钟/8
+//            else if(spi_psc > 2) SPI3CTL |= 0x00; // 时钟/4
+//            else SPI3CTL |= 0x03; // 时钟/2
 
+            SPI3_CLKDIV = spi_psc / 2 + 1;
+            
             // 配置SPI_3极性相位
             switch(mode) 
             {

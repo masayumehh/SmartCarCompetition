@@ -35,6 +35,7 @@
 
 
 #include "zf_common_fifo.h"
+#include "zf_common_interrupt.h"
 
 #include "zf_driver_gpio.h"
 #include "zf_driver_soft_iic.h"
@@ -46,8 +47,9 @@
 #include "zf_device_config.h"
 #include "zf_device_mt9v03x.h"
 #include "zf_device_mt9v03x_dma.h"
-#include <stdlib.h>
-#include <stdio.h> /* for printf */
+
+
+
 
 
 
@@ -135,8 +137,6 @@ uint8 mt9v03x_init (void)
 {
     uint8 loop_count    = 0;
     uint8 return_state  = 0;
-
-
     
     do
     { 
@@ -144,28 +144,32 @@ uint8 mt9v03x_init (void)
 
         if(!return_state)
         {
-   
-            for(loop_count = 0; 8 > loop_count; loop_count ++)
-            {
-                gpio_init((MT9V03X_DATA_PIN + loop_count), GPI, GPIO_LOW, GPI_PULL_UP);
-            }
+            gpio_init(MT9V03X_D0_PIN, GPI, GPIO_LOW, GPI_PULL_UP);
+            gpio_init(MT9V03X_D1_PIN, GPI, GPIO_LOW, GPI_PULL_UP);
+            gpio_init(MT9V03X_D2_PIN, GPI, GPIO_LOW, GPI_PULL_UP);
+            gpio_init(MT9V03X_D3_PIN, GPI, GPIO_LOW, GPI_PULL_UP);
+            gpio_init(MT9V03X_D4_PIN, GPI, GPIO_LOW, GPI_PULL_UP);
+            gpio_init(MT9V03X_D5_PIN, GPI, GPIO_LOW, GPI_PULL_UP);
+            gpio_init(MT9V03X_D6_PIN, GPI, GPIO_LOW, GPI_PULL_UP);
+            gpio_init(MT9V03X_D7_PIN, GPI, GPIO_LOW, GPI_PULL_UP);
 
-            gpio_init(FIFO_WE_PIN,  GPO, 0, GPO_PUSH_PULL);
+            gpio_init(FIFO_WE_PIN,   GPO, 0, GPO_PUSH_PULL);
             gpio_init(FIFO_WRST_PIN, GPO, 1, GPO_PUSH_PULL);
             gpio_init(FIFO_RCK_PIN,  GPO, 1, GPO_PUSH_PULL);
             gpio_init(FIFO_OE_PIN,   GPO, 0, GPO_PUSH_PULL);
             gpio_init(FIFO_RRST_PIN, GPO, 1, GPO_PUSH_PULL);
             gpio_init(FIFO_VSY_PIN,  GPI, 1, GPI_PULL_UP);
 
-            mt9v03x_dma_init((uint8 *)&mt9v03x_image[0][0], MT9V03X_IMAGE_SIZE, 0, 3, 3);
-
+            // 默认中断优先级最高，DMA优先级最高
+            mt9v03x_dma_init((uint8 *)&mt9v03x_image[0][0], MT9V03X_IMAGE_SIZE, 0, 3, 3);   
+            
             exit_init(INT1_P33, BOTH);
+            // 默认中断优先级最高
+            interrupt_set_priority(INT1_IRQn, 3);                               
             
             break;
         }
     }while(0);
-    
-//    printf("return_state = %d\r\n", return_state);
     
     return return_state;
 }

@@ -61,10 +61,10 @@
 //
 // 如果发现现象与说明严重不符 请参照本文件最下方 例程常见问题说明 进行排查
 
-#define UART_INDEX              ( UART_1   )                // 默认 UART_1
+#define UART_INDEX              ( UART_5   )                // 默认 UART_5
 #define UART_BAUDRATE           ( 115200 )                  // 默认 115200
-#define UART_TX_PIN             ( UART1_TX_P37 )            // 默认 UART1_TX_P37
-#define UART_RX_PIN             ( UART1_RX_P36 )            // 默认 UART1_RX_P36
+#define UART_TX_PIN             ( UART5_TX_P05 )            // 默认 UART5_TX_P05
+#define UART_RX_PIN             ( UART5_RX_P04 )            // 默认 UART5_RX_P04
 
 
 uint8       uart_get_data[64] = {0};                        // 串口接收数据缓冲区
