@@ -5,7 +5,9 @@
 #include "zf_common_debug.h"
 #include "zf_common_clock.h"
 
-// 引脚禁止修改
+// FIFO引脚禁止修改,除此之外摄像头的DMA还占用了P45 P36这两个引脚
+// FIFO引脚禁止修改,除此之外摄像头的DMA还占用了P45 P36这两个引脚
+// FIFO引脚禁止修改,除此之外摄像头的DMA还占用了P45 P36这两个引脚
 #define         FIFO_VSY_PIN                    ( IO_P33 )
 #define         FIFO_RCK_PIN                    ( IO_P37 )
 #define         FIFO_WE_PIN                     ( IO_P41 )
