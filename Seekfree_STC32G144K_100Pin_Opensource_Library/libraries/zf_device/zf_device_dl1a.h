@@ -74,13 +74,13 @@
 #define DL1A_XS_ENABLE              ( 1  )
 
 #if DL1A_XS_ENABLE
-	#define DL1A_XS_PIN             ( IO_P81 )
+	#define DL1A_XS_PIN             ( IO_P64 )
 #endif
 
 #define DL1A_INT_ENABLE             ( 0 )                                   // 是否启用 INT 引脚 启用则会自动更新数据
 
 #if DL1A_INT_ENABLE
-	#define DL1A_INT_PIN            ( IO_P83 )								// 未定义引脚，可以不接。
+	#define DL1A_INT_PIN            ( IO_P84 )								// 未定义引脚，可以不接。
 #endif
 
 #define DL1A_TIMEOUT_COUNT          (0x00FF)                         		// DL1A 超时计数
