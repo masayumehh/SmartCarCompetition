@@ -46,7 +46,7 @@
 #define PIT_CH                  (TIM0_PIT )                	// 使用的周期中断编号 如果修改 需要同步对应修改周期中断编号与 isr.c 中的调用
 #define PIT_PRIORITY            (TIMER0_IRQn)              	// 对应周期中断的中断编号
 
-#define LED1                    (IO_P90)
+#define LED1                    (IO_P52)
 
 uint8 pit_state = 0;
 
