@@ -40,7 +40,7 @@
 #include "zf_driver_pwm.h"
 #include "zf_driver_gpio.h"
 #include "zf_driver_uart.h"
-
+#include "zf_driver_delay.h"
 
 // 引脚输出选择寄存器
 const vuint32 PWMX_PS_ADDR[] = 
@@ -91,7 +91,7 @@ const vuint32 PWM_CCMR_ADDR[] =
 {
     0x7efec8, 0x7efec9, 0x7efeca, 0x7efecb, // PWMA
     0x7efee8, 0x7efee9, 0x7efeea, 0x7efeeb, // PWMB
-    0x7ef8c8, 0x7ef8c9, 0x7ef8ca, 0x7ef8ca, // PWMC
+    0x7ef8c8, 0x7ef8c9, 0x7ef8ca, 0x7ef8cb, // PWMC
     0x7ef8e8, 0x7ef8e9, 0x7ef8ea, 0x7ef8eb, // PWMD
     0x7ef6c8, 0x7ef6c9, 0x7ef6ca, 0x7ef6cb, // PWME
     0x7ef6e8, 0x7ef6e9, 0x7ef6ea, 0x7ef6eb, // PWMF
@@ -271,7 +271,6 @@ void pwm_init(pwm_channel_enum pin, uint32 freq, uint32 duty)
         match_temp = period_temp + 1;									// duty为100%
     }
 
-
 	PWMX_PSCRH(pin) = (uint8)(freq_div >> 8);	    // 设置预分频值
 	PWMX_PSCRL(pin) = (uint8)freq_div;
 	
@@ -281,12 +280,34 @@ void pwm_init(pwm_channel_enum pin, uint32 freq, uint32 duty)
     PWMX_CCRXH(pin) = (uint8)(match_temp >> 8);		// 比较值 高8位
     PWMX_CCRXL(pin) = (uint8)match_temp;			// 比较值 低8位
 
-    PWMX_CCERX(pin) |= 1 << ((pin >> 11 & 0x01) * 4);	// 设置输出极性
+    PWMX_CCERX(pin) |= 1 << ((pin >> 11 & 0x01) * 4 + (pin >> 10 & 0x01) * 2);	// 使能N或者P通道
+
 	PWMX_CCMRX(pin) |= 0x06 << 4;					// 设置为PWM模式1
 	PWMX_CCMRX(pin) |= 1 << 3;						// 开启PWM寄存器的预装载功
-
+    
     PWMX_ENO(pin) |= 1 << ((((pin >> 11) & 0x03) * 2) + ((pin >> 10) & 0x01));		// 使能通道
     PWMX_PS(pin)  |= ((pin >> 8) & 0x03) << (((pin >> 11) & 0x03) * 2);				// 选择引脚
     PWMX_BKR(pin) |= 0x80; 							// 主输出使能 相当于总开关
     PWMX_CR1(pin) |= 0x01;							// PWM开始计数
+
+#if 0
+    while(1)
+    {
+        printf("PWMX_PSCRH(pin) -> 0x%lX = 0x%X\r\n",  ((PWM_PSCR_ADDR[(pin >> 13 & 0x7)])), PWMX_PSCRH(pin));
+        printf("PWMX_PSCRL(pin) -> 0x%lX = 0x%X\r\n",  (((PWM_PSCR_ADDR[(pin >> 13 & 0x7)] + 1))), PWMX_PSCRL(pin));
+        printf("PWMX_ARRH(pin) -> 0x%lX = 0x%X\r\n",   (((PWM_ARR_ADDR[(pin >> 13 & 0x7)]))), PWMX_ARRH(pin));
+        printf("PWMX_ARRL(pin) -> 0x%lX = 0x%X\r\n",   (((PWM_ARR_ADDR[(pin >> 13 & 0x7)] + 1))), PWMX_ARRL(pin));
+        printf("PWMX_CCRXH(pin) -> 0x%lX = 0x%X\r\n",  (((PWM_CCR_ADDR[((pin >> 13 & 0x7) * 4) + (pin >> 11 & 0x3)]))), PWMX_CCRXH(pin));
+        printf("PWMX_CCRXL(pin) -> 0x%lX = 0x%X\r\n",  (((PWM_CCR_ADDR[((pin >> 13 & 0x7) * 4) + (pin >> 11 & 0x3)] + 1))), PWMX_CCRXL(pin));
+		
+        printf("PWMX_CCERX(pin) -> 0x%lX = 0x%X\r\n",  (((PWM_CCER_ADDR[(((pin >> 13 & 0x7) * 2) + ((pin >> 11 & 0x03) >> 1))]))), PWMX_CCERX(pin));
+        printf("PWMX_CCMRX(pin) -> 0x%lX = 0x%X\r\n",  (((PWM_CCMR_ADDR[((pin >> 13 & 0x7) * 4) + (pin >> 11 & 0x3)]))), PWMX_CCMRX(pin));
+        printf("PWMX_ENO(pin) -> 0x%lX = 0x%X\r\n",    (((PWMX_ENO_ADDR[pin >> 13 & 0x7]))), PWMX_ENO(pin));
+        printf("PWMX_PS(pin) -> 0x%lX = 0x%X\r\n",     (((PWMX_PS_ADDR[pin  >> 13 & 0x7]))), PWMX_PS(pin));
+        printf("PWMX_BKR(pin) -> 0x%lX = 0x%X\r\n",    (((PWMX_BKR_ADDR[pin >> 13 & 0x7]))), PWMX_BKR(pin));
+        printf("PWMX_CR1(pin) -> 0x%lX = 0x%X\r\n",    (((PWMX_CR1_ADDR[pin >> 13 & 0x7]))), PWMX_CR1(pin));
+        system_delay_ms(1000);
+    }
+#endif
+    
 }
