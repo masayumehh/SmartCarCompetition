@@ -43,9 +43,9 @@
 
 
 // 仅支持IIC配置
-#define MT9V03X_COF_IIC_DELAY   ( 0 )                               // 总钻风 IIC 延时
-#define MT9V03X_COF_IIC_SCL     ( IO_PB6 )                          // 总钻风 IIC-SCL 引脚
-#define MT9V03X_COF_IIC_SDA     ( IO_PB7 )                          // 总钻风 IIC-SDA 引脚
+#define MT9V03X_COF_IIC_DELAY   ( 50 )                              // 总钻风 IIC 延时
+#define MT9V03X_COF_IIC_SCL     ( IO_PB6 )                          // 总钻风 IIC-SCL 引脚 ,IIC频率建议低于50Khz
+#define MT9V03X_COF_IIC_SDA     ( IO_PB7 )                          // 总钻风 IIC-SDA 引脚 ,IIC频率建议低于50Khz
 
 // 总钻风数据引脚，禁止修改
 #define MT9V03X_D0_PIN          ( IO_P20 )                          // D0对应P20
