@@ -87,7 +87,7 @@
     #error "SERVO_MOTOR_FREQ ERROE!"
 #endif
 
-#define LED                 (IO_P90)
+#define LED                 (IO_P52)
 
 float servo_motor_duty = 90.0;                                                  // 舵机动作角度
 float servo_motor_dir = 1;                                                      // 舵机动作状态
@@ -117,7 +117,7 @@ void main(void)
         
         for(channel_index = 0; channel_index < CHANNEL_NUMBER; channel_index++)
         {
-            pwm_set_duty(channel_list[channel_index], servo_motor_duty);
+            pwm_set_duty(channel_list[channel_index], SERVO_DUTY(servo_motor_duty));
             if(servo_motor_dir)
             {
                 servo_motor_duty ++;
