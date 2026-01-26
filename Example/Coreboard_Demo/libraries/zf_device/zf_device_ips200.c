@@ -611,7 +611,7 @@ void ips200_show_gray_image (uint16 x, uint16 y, const uint8 *image, uint16 widt
         ips200_write_16bit_data_array(data_buffer, dis_width);
     }
 
-        IPS200_CS(1);
+    IPS200_CS(1);
 
 }
 

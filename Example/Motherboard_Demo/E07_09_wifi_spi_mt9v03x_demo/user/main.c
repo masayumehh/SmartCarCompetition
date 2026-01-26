@@ -117,8 +117,8 @@
 //4：没有图像信息，仅包含三条边线信息，边线信息只包含横轴坐标，纵轴坐标由图像高度得到，意味着每个边界在一行中只会有一个点，这样的方式可以极大的降低传输的数据量
 #define INCLUDE_BOUNDARY_TYPE   0
 
-#define WIFI_SSID_TEST          "AAAAAAAAAA"
-#define WIFI_PASSWORD_TEST      "12345678" // 如果需要连接的WIFI 没有密码则需要将 这里 替换为 NULL
+#define WIFI_SSID_TEST          "SEEKFREE_2.4G"
+#define WIFI_PASSWORD_TEST      "SEEKFREEV2" // 如果需要连接的WIFI 没有密码则需要将 这里 替换为 NULL
 
 
 // 边界的点数量远大于图像高度，便于保存回弯的情况

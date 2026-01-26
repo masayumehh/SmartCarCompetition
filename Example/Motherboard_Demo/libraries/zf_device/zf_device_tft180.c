@@ -499,8 +499,9 @@ void tft180_show_float(uint16 x,uint16 y,double dat,uint8 num,uint8 pointnum)
 void tft180_show_gray_image (uint16 x, uint16 y, const uint8 *image, uint16 width, uint16 height, uint16 dis_width, uint16 dis_height, uint8 threshold)
 {
     uint32 i = 0, j = 0;
-    uint16 color,temp;
-    uint32 width_index, height_index;
+    uint16 color ,temp ;
+    uint16 data_buffer[TFT180_WIGHT];
+    const uint8 *image_temp;
 
     // 如果程序在输出了断言信息 并且提示出错位置在这里
     // 那么一般是屏幕显示的时候超过屏幕分辨率范围了
@@ -513,28 +514,29 @@ void tft180_show_gray_image (uint16 x, uint16 y, const uint8 *image, uint16 widt
 
     for(j = 0; j < dis_height; j ++)
     {
-        height_index = j * height / dis_height;
+        image_temp = image + j * height / dis_height * width;                   // 直接对 image 操作会 Hardfault 暂时不知道为什么
         for(i = 0; i < dis_width; i ++)
         {
-            width_index = i * width / dis_width;
-            temp = *(image + height_index * width + width_index);               // 读取像素点
+            temp = *(image_temp + i * width / dis_width);                       // 读取像素点
             if(threshold == 0)
             {
                 color = (0x001f & ((temp) >> 3)) << 11;
                 color = color | (((0x003f) & ((temp) >> 2)) << 5);
                 color = color | (0x001f & ((temp) >> 3));
-                tft180_write_16bit_data(color);
+                data_buffer[i] = (color);
             }
             else if(temp < threshold)
             {
-                tft180_write_16bit_data(RGB565_BLACK);
+                data_buffer[i] = (RGB565_BLACK);
             }
             else
             {
-                tft180_write_16bit_data(RGB565_WHITE);
+                data_buffer[i] = (RGB565_WHITE);
             }
         }
+        tft180_write_16bit_data_arry(data_buffer, dis_width);
     }
+    
     TFT180_CS(1);
 }
 
