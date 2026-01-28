@@ -135,7 +135,7 @@ uint8 x1_boundary[MT9V03X_H], x2_boundary[MT9V03X_H], x3_boundary[MT9V03X_H];
 uint8 y1_boundary[MT9V03X_W], y2_boundary[MT9V03X_W], y3_boundary[MT9V03X_W];
 
 // 图像备份数组，在发送前将图像备份再进行发送，这样可以避免图像出现撕裂的问题
-uint8 image_copy[MT9V03X_H][MT9V03X_W];
+uint8 far image_copy[MT9V03X_H][MT9V03X_W];
 
 void main (void)
 {
