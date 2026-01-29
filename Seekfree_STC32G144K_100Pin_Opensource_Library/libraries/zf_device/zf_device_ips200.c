@@ -573,7 +573,7 @@ void ips200_show_gray_image (uint16 x, uint16 y, const uint8 *image, uint16 widt
 {
     uint32 i = 0, j = 0;
     uint16 color ,temp ;
-    uint16 data_buffer[IPS_WIGHT];
+    uint16 data_buffer[IPS_LEN];
     const uint8 *image_temp;
 
     // 如果程序在输出了断言信息 并且提示出错位置在这里

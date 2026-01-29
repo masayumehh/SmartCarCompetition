@@ -57,8 +57,8 @@
 
 #include "zf_device_tft180.h"
 
-#define TFT180_LEN   240
-#define TFT180_WIGHT 135
+#define TFT180_LEN   160
+#define TFT180_WIGHT 128
 
 uint16 tft180_pencolor = TFT180_DEFAULT_PENCOLOR;
 uint16 tft180_bgcolor = TFT180_DEFAULT_BGCOLOR;
@@ -500,7 +500,7 @@ void tft180_show_gray_image (uint16 x, uint16 y, const uint8 *image, uint16 widt
 {
     uint32 i = 0, j = 0;
     uint16 color ,temp ;
-    uint16 data_buffer[TFT180_WIGHT];
+    uint16 data_buffer[TFT180_LEN];
     const uint8 *image_temp;
 
     // 如果程序在输出了断言信息 并且提示出错位置在这里

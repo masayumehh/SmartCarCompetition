@@ -111,8 +111,8 @@ typedef enum
     MT9V03X_SCCB,
 }mt9v03x_type_enum;
 
-extern vuint8 far mt9v03x_finish_flag;
-extern uint8  far mt9v03x_image[MT9V03X_H][MT9V03X_W];
+extern vuint8 mt9v03x_finish_flag;
+extern uint8  mt9v03x_image[MT9V03X_H][MT9V03X_W];
 
 
 void    mt9v03x_vsync_handler(void);
