@@ -153,16 +153,22 @@ void ips200_clear (uint16 color)
 void ips200_set_dir (ips200_dir_enum dir)
 {
     ips200_display_dir = dir;
-//    if(dir < 2)
-//    {
-//        ips200_x_max = IPS_WIGHT;
-//        ips200_y_max = IPS_LEN;
-//    }
-//    else
-//    {
-//        ips200_x_max = IPS_LEN;
-//        ips200_y_max = IPS_WIGHT;
-//    }
+    
+    switch(ips200_display_dir)
+    {
+        case IPS200_PORTAIT:
+        case IPS200_PORTAIT_180:
+        {
+            ips200_x_max = IPS_LEN;
+            ips200_y_max = IPS_WIGHT;
+        }break;
+        case IPS200_CROSSWISE:
+        case IPS200_CROSSWISE_180:
+        {
+            ips200_x_max = IPS_WIGHT;
+            ips200_y_max = IPS_LEN;
+        }break;
+    }
 }
 
 //-------------------------------------------------------------------------------------------------------------------

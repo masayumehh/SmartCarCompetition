@@ -181,15 +181,21 @@ void ips114_clear (uint16 color)
 void ips114_set_dir (ips114_dir_enum dir)
 {
     ips114_display_dir = dir;
-    if(dir < 2)
+    
+    switch(ips114_display_dir)
     {
-        ips114_x_max = IPS_WIGHT;
-        ips114_y_max = IPS_LEN;
-    }
-    else
-    {
-        ips114_x_max = IPS_LEN;
-        ips114_y_max = IPS_WIGHT;
+        case IPS114_PORTAIT:
+        case IPS114_PORTAIT_180:
+        {
+            ips114_x_max = IPS_LEN;
+            ips114_y_max = IPS_WIGHT;
+        }break;
+        case IPS114_CROSSWISE:
+        case IPS114_CROSSWISE_180:
+        {
+            ips114_x_max = IPS_WIGHT;
+            ips114_y_max = IPS_LEN;
+        }break;
     }
 }
 
