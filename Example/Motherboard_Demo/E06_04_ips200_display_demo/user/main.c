@@ -60,7 +60,11 @@ void main(void)
     debug_init();                       		// 调试串口信息初始化
 
     // 此处编写用户代码 例如外设初始化代码等
-
+    
+    // 设置为竖屏模式
+    ips200_set_dir(IPS200_PORTAIT);
+    
+    // 初始化IPS200屏幕
 	ips200_init();
 	
     while(1)

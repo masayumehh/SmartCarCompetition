@@ -64,12 +64,12 @@
 #define IPS200PRO_SPI_LENGTH    ( 4096 )    // 每次SPI通讯最大长度 不可修改
 
 // 不可修改
-#define MAX_ID_PAGE             ( 30 )
+#define MAX_ID_PAGE             ( 10 )
 #define MAX_ID_LABEL            ( 50 )
 #define MAX_ID_TABLE            ( 20 )
-#define MAX_ID_METER            ( 10  )
+#define MAX_ID_METER            ( 2  )
 #define MAX_ID_CLOCK            ( 1  )
-#define MAX_ID_PROGRESS_BAR     ( 20 )
+#define MAX_ID_PROGRESS_BAR     ( 10 )
 #define MAX_ID_CALENDAR         ( 1  )
 #define MAX_ID_WAVEFORM         ( 5  )
 #define MAX_ID_IMAGE            ( 5  )
@@ -327,7 +327,7 @@ uint8 ips200pro_set_date(uint16 year, uint8 month, uint8 day)
     IPS200PRO_COMMON_STRUCT(temp, 2);
 
     temp.dat[0]  = year;
-    temp.dat[1]  = month || day << 8;
+    temp.dat[1]  = month | day << 8;
 
     return_state = ips200pro_write_packet(IPS200PRO_PARAMETER_SET, IPS200PRO_SYSTEM_DATE, 0, (ips200pro_header_struct *)&temp, sizeof(temp), NULL, 0);
     return return_state;
@@ -338,8 +338,8 @@ uint8 ips200pro_set_time(uint8 hour, uint8 minute, uint8 second)
     uint8 return_state;
     IPS200PRO_COMMON_STRUCT(temp, 2);
 	
-    temp.dat[0] = hour || minute << 8;
-    temp.dat[1] = second || 0 << 8;
+    temp.dat[0] = hour | minute << 8;
+    temp.dat[1] = second | 0 << 8;
 	
     return_state = ips200pro_write_packet(IPS200PRO_PARAMETER_SET, IPS200PRO_SYSTEM_TIME, 0, (ips200pro_header_struct *)&temp, sizeof(temp), NULL, 0);
     return return_state;
@@ -806,7 +806,7 @@ uint8 ips200pro_calendar_display(uint16 year, uint8 month, ips200pro_calendar_mo
     IPS200PRO_COMMON_STRUCT(temp, 2);
 
     temp.dat[0] = year;
-    temp.dat[1] = month || mode << 8;
+    temp.dat[1] = month | mode << 8;
 
     return_state = ips200pro_write_packet(IPS200PRO_WIDGETS_CALENDAR, IPS200PRO_COMMON_VALUE, 1, (ips200pro_header_struct *)&temp, sizeof(temp), NULL, 0);
     return return_state;
@@ -908,17 +908,17 @@ uint8 ips200pro_image_display(uint16 image_id, const void *image, uint16 width, 
     {
 		temp.dat[0]  = 0;
         temp.dat[1]  = 0;
-        temp.dat[2]  = IMAGE_NULL << 8;
+        temp.dat[2]  = IMAGE_NULL << 8 | 1;
     }
     else
     {
 		temp.dat[0] = width;
         temp.dat[1] = height;
-        temp.dat[2] = image_type << 8;
+        temp.dat[2] = image_type << 8 | 1;
     }
-    temp.dat[2] = 1;            // 图像开始传输标志位
+//    temp.dat[2] = 1 | temp.dat[2];            // 图像开始传输标志位
     temp.dat[3] = threshold;
-
+    
     do
     {
         // 计算本次传输字节数
@@ -926,7 +926,18 @@ uint8 ips200pro_image_display(uint16 image_id, const void *image, uint16 width, 
         return_state += ips200pro_write_packet(IPS200PRO_WIDGETS_IMAGE, IPS200PRO_COMMON_VALUE, (uint8)image_id, (ips200pro_header_struct *)&temp, sizeof(temp), image_data, send_length);
         image_data += send_length;
         image_size -= send_length;
-        temp.dat[2] = 0;
+        if((NULL == image) || (!width) || (!height) || (IMAGE_NULL == image_type))
+        {
+            temp.dat[0]  = 0;
+            temp.dat[1]  = 0;
+            temp.dat[2]  = IMAGE_NULL << 8;
+        }
+        else
+        {
+            temp.dat[0] = width;
+            temp.dat[1] = height;
+            temp.dat[2] = image_type << 8;
+        }
     }while(image_size);
 
     return return_state;
@@ -935,13 +946,25 @@ uint8 ips200pro_image_display(uint16 image_id, const void *image, uint16 width, 
 uint8 ips200pro_image_draw_line(uint16 image_id, uint8 line_id, void *line_data, uint16 line_length, ips200pro_image_line_type_enum data_type, uint16 color)
 {
     uint8 return_state = 1;
+    uint8 i = 0;
+    uint16 *ptr = (uint16 *)line_data;
+
+    
     IPS200PRO_COMMON_STRUCT(temp, 2);
 
     if(MAX_ID_IMAGE_LINE >= line_id)
     {
-        temp.length                 = data_type * line_length * 2 + sizeof(temp);
-        temp.dat[0]  = line_id || data_type << 8;
+        temp.length  = data_type * line_length * 2 + sizeof(temp);
+        temp.dat[0]  = line_id | 1 << 8;
         temp.dat[1]  = color;
+        
+        	
+//        // 两位uint16数据进行大小端交换
+//        for(i = 0; i < line_length; i++)
+//        {
+//            ptr[i] = ((ptr[i] & 0xFF) << 8) | ((ptr[i] & 0xFF00) >> 8);
+//        }
+
         return_state = ips200pro_write_packet(IPS200PRO_WIDGETS_IMAGE, IPS200PRO_IMAGE_DRAW_LINE, (uint8)image_id, (ips200pro_header_struct *)&temp, sizeof(temp), line_data, data_type * line_length * 2);
     }
     return return_state;
