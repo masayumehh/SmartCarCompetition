@@ -70,9 +70,9 @@ typedef enum
     SPI1_CH3_MISO_P41 = 0x0200 | IO_P41,
     
     // SPI_1 只能使用同一组引脚，不允许混用引脚
-    SPI1_CH4_SCLK_P32 = 0x0300 | IO_P32,
-    SPI1_CH4_MOSI_P34 = 0x0300 | IO_P34,
-    SPI1_CH4_MISO_P33 = 0x0300 | IO_P33,
+    SPI1_CH4_SCLK_P77 = 0x0300 | IO_P77,
+    SPI1_CH4_MOSI_P75 = 0x0300 | IO_P75,
+    SPI1_CH4_MISO_P76 = 0x0300 | IO_P76,
     // ---------------- SPI_1 ----------------//
      
     // ---------------- SPI_2 ----------------//
