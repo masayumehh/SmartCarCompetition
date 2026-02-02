@@ -580,7 +580,7 @@ void uart_tim_init(uart_index_enum uart_n, uint32 baud, uart_pin_enum tx_pin, ua
             {
                 T5L = brt;
                 T5H = brt >> 8;
-                T6T5M |= 0x08;
+                T6T5M |= 0x0a;   // 设置1T模式，开启定时器
                 S5CFG |= 0x01;
             }
                             
