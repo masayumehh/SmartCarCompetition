@@ -122,8 +122,10 @@ void encoder_clear_count(encoder_index_enum encoder_n)
     }
     else
     {
-        (*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n])) = 0;
+        (*(vuint8 far *)(PWMX_CR1_ADDR[encoder_n]))     &= 0xFE;
+        (*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n]))     = 0;
         (*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n] + 1)) = 0;
+        (*(vuint8 far *)(PWMX_CR1_ADDR[encoder_n]))     |= 0x01;
     }
 }
 
@@ -207,6 +209,7 @@ void encoder_quad_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pi
     gpio_init(ch1_pin  & 0xFF, GPI, 1, GPI_IMPEDANCE);		    // 初始化引脚
     gpio_init(ch2_pin  & 0xFF, GPI, 1, GPI_IMPEDANCE);		    // 初始化引脚
 
+    PWMX_CR1(ch1_pin) &= 0xFE;
     PWMX_PS(ch1_pin)  |= ((ch1_pin >> 8) & 0x03) << (((ch1_pin >> 11) & 0x03) * 2);				// 选择引脚
     PWMX_PS(ch2_pin)  |= ((ch2_pin >> 8) & 0x03) << (((ch2_pin >> 11) & 0x03) * 2);				// 选择引脚
 
@@ -220,8 +223,8 @@ void encoder_quad_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pi
 
     PWMX_CCERX(ch1_pin) = 0x00;     // 关闭所有输出
     PWMX_CCERX(ch2_pin) = 0x00;     // 关闭所有输出
-    PWMX_CCMRX(ch1_pin) |= 0x01;	// 01:CC2 通道被配置为输入，IC2 映射在TI2 上
-    PWMX_CCMRX(ch2_pin) |= 0x01;    // 01:CC1 通道被配置为输入，IC1 映射在TI1 上
+    PWMX_CCMRX(ch1_pin) |= 0x01;	// 01:CC1 通道被配置为输入，IC1 映射在TI1 上
+    PWMX_CCMRX(ch2_pin) |= 0x01;    // 01:CC2 通道被配置为输入，IC2 映射在TI2 上
     PWMX_CR1(ch1_pin)   |= 0x01; 	// 开启定时器，向上计数
 
 
