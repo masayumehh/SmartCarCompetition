@@ -85,13 +85,13 @@
 #define PIT_CH                          (TIM1_PIT )                 // 使用的周期中断编号 如果修改 需要同步对应修改周期中断编号与 isr.c 中的调用
 //#define PIT_PRIORITY                    (TIM1_IRQn)               TIM1的中断优先级默认最低，不可修改，具体看手册。
 
-#define ENCODER_DIR_1                 	(PWMA_ENCODER)              // 带方向编码器对应使用的编码器接口 
-#define ENCODER_DIR_PULSE_1            	(PWMA_ENCODER_CH1P_P60)     // PULSE 对应的引脚
-#define ENCODER_DIR_DIR_1              	(PWMA_ENCODER_CH2P_P62)     // DIR 对应的引脚
+#define ENCODER_QUAD_1                 	(PWMA_ENCODER)              // 带方向编码器对应使用的编码器接口 
+#define ENCODER_QUAD_1_CHA            	(PWMA_ENCODER_CH1P_P60)     // PULSE 对应的引脚
+#define ENCODER_QUAD_1_CHB              (PWMA_ENCODER_CH2P_P62)     // DIR 对应的引脚
 
-#define ENCODER_DIR_2                 	(PWMC_ENCODER)              // 带方向编码器对应使用的编码器接口
-#define ENCODER_DIR_PULSE_2       		(PWMC_ENCODER_CH1P_P40)     // PULSE 对应的引脚
-#define ENCODER_DIR_DIR_2           	(PWMC_ENCODER_CH2P_P42)     // DIR 对应的引脚
+#define ENCODER_QUAD_2                 	(PWMC_ENCODER)              // 带方向编码器对应使用的编码器接口
+#define ENCODER_QUAD_2_CHA   		    (PWMC_ENCODER_CH1P_P40)     // PULSE 对应的引脚
+#define ENCODER_QUAD_2_CHB       	    (PWMC_ENCODER_CH2P_P42)     // DIR 对应的引脚
 
 int16 encoder_data_dir_1 = 0;
 int16 encoder_data_dir_2 = 0;
@@ -108,8 +108,8 @@ void main(void)
     // STC32G144K只有PWM接口支持正交解码编码器.定时器接口不支持正交编码器。
     // STC32G144K只有PWM接口支持正交解码编码器.定时器接口不支持正交编码器。
 	// 如果，看了此段话再来问，我会再次截图给你这段话。
-    encoder_quad_init(ENCODER_DIR_1, ENCODER_DIR_DIR_1, ENCODER_DIR_PULSE_1);   // 初始化编码器模块与引脚 带方向增量编码器模式
-    encoder_quad_init(ENCODER_DIR_2, ENCODER_DIR_DIR_2, ENCODER_DIR_PULSE_2);   // 初始化编码器模块与引脚 带方向增量编码器模式
+    encoder_quad_init(ENCODER_QUAD_1, ENCODER_QUAD_1_CHA, ENCODER_QUAD_1_CHB);   // 初始化编码器模块与引脚 带方向增量编码器模式
+    encoder_quad_init(ENCODER_QUAD_2, ENCODER_QUAD_2_CHA, ENCODER_QUAD_2_CHB);   // 初始化编码器模块与引脚 带方向增量编码器模式
 
     
 	// 设置100ms的周期定时器
@@ -136,11 +136,11 @@ void main(void)
 //-------------------------------------------------------------------------------------------------------------------
 void pit_handler (void)
 {
-    encoder_data_dir_1 = encoder_get_count(ENCODER_DIR_1);                  // 获取编码器计数
-    encoder_data_dir_2 = encoder_get_count(ENCODER_DIR_2);                  // 获取编码器计数
+    encoder_data_dir_1 = encoder_get_count(ENCODER_QUAD_1);                  // 获取编码器计数
+    encoder_data_dir_2 = encoder_get_count(ENCODER_QUAD_2);                  // 获取编码器计数
 
-    encoder_clear_count(ENCODER_DIR_1);                                		// 清空编码器计数
-    encoder_clear_count(ENCODER_DIR_2);                                		// 清空编码器计数
+    encoder_clear_count(ENCODER_QUAD_1);                                		// 清空编码器计数
+    encoder_clear_count(ENCODER_QUAD_2);                                		// 清空编码器计数
 }
 // **************************** 代码区域 ****************************
 

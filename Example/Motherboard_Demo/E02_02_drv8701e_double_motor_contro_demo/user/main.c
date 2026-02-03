@@ -71,11 +71,11 @@
 // **************************** 代码区域 ****************************
 #define MAX_DUTY            ( 50 )                                               // 最大 MAX_DUTY% 占空比
 
-#define DIR_1               ( IO_P51 )
-#define PWM_1               ( PWMD_CH1_P50 )
+#define DIR_1               ( IO_P50 ) 
+#define PWM_1               ( PWMD_CH2_P51 )
                               
-#define DIR_2               ( IO_P53 )
-#define PWM_2               ( PWMD_CH3_P52 )
+#define DIR_2               ( IO_P52 ) 
+#define PWM_2               ( PWMD_CH4_P53 )
                               
 #define DIR_3               ( IO_P75 )
 #define PWM_3               ( PWMB_CH1_P74 )
