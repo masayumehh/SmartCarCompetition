@@ -247,7 +247,7 @@ void pit_init(pit_index_enum pit_n, uint32 period, callback_function pit_handler
         case TIM0_PIT:
         {
             TM0PS = freq_div;	// 设置分频值
-            TMOD |= 0xF0; 		// 模式 0
+            TMOD &= 0xF0; 		// 模式 0
             TL0 = temp;
             TH0 = temp >> 8;
             TR0 = 1; 			// 启动定时器
@@ -257,7 +257,7 @@ void pit_init(pit_index_enum pit_n, uint32 period, callback_function pit_handler
         case TIM1_PIT:
         {
             TM1PS = freq_div;	// 设置分频值
-            TMOD |= 0x00; 		// 模式 0
+            TMOD &= 0x0F; 		// 模式 0
             TL1 = temp;
             TH1 = temp >> 8;
             TR1 = 1; 			// 启动定时器

@@ -176,5 +176,5 @@ typedef enum
 int16   encoder_get_count   (encoder_index_enum encoder_n);
 void    encoder_clear_count (encoder_index_enum encoder_n);
 void    encoder_quad_init   (encoder_index_enum encoder_n, encoder_channel_enum ch1_pin, encoder_channel_enum ch2_pin);
-void    encoder_dir_init    (uint16 encoder_n, uint16 dir_pin, uint16 lsb_pin);
+void    encoder_dir_init    (uint16 encoder_n, uint16 lsb_pin, uint16 dir_pin);
 #endif

@@ -40,11 +40,14 @@
 #include "zf_driver_encoder.h"
 #include "zf_common_debug.h"
 
-static volatile uint8 encoder_dir_pin[14] = 
+static volatile uint8 encoder_dir_pin[20] = 
 { 
+    // 0-5  为 PWM 接口，一共6个
+    // 6-19 为 TIM 接口，一共14个
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
-    0xFF, 0xFF, 0xFF, 0xFF, 
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 };
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -77,14 +80,28 @@ int16 encoder_get_count(encoder_index_enum encoder_n)
             case TIM18_ENCODER: ret = (uint16)T18H << 8; ret |= T18L; break;
             default: zf_assert(0); break;            
         }
-        if(gpio_get_level(encoder_dir_pin[encoder_n & 0x0F]) == 0)
+        if(gpio_get_level(encoder_dir_pin[encoder_n & 0x0F + PWMF_ENCODER + 1]) == 0)
         {
             ret = -ret;
         }
     }
     else
     {
-        ret = ((*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n])) << 8) | ((*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n] + 1)));
+        ret  = ((*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n])) << 8);
+        ret |= ((*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n] + 1)));
+        if(encoder_dir_pin[encoder_n & 0x0F] != 0xFF)
+        {
+            // 方向编码器
+            if(gpio_get_level(encoder_dir_pin[encoder_n & 0x0F]) == 0)
+            {
+                ret = -ret;
+            }
+        }
+        else
+        {
+            // 正交编码器，四倍频模式
+            ret = ret >> 2;
+        }
     }
 
     return  ret;
@@ -122,10 +139,10 @@ void encoder_clear_count(encoder_index_enum encoder_n)
     }
     else
     {
-        (*(vuint8 far *)(PWMX_CR1_ADDR[encoder_n]))     &= 0xFE;
+        // (*(vuint8 far *)(PWMX_CR1_ADDR[encoder_n]))     &= 0xFE;
         (*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n]))     = 0;
         (*(vuint8 far *)(PWMX_CNTR_ADDR[encoder_n] + 1)) = 0;
-        (*(vuint8 far *)(PWMX_CR1_ADDR[encoder_n]))     |= 0x01;
+        // (*(vuint8 far *)(PWMX_CR1_ADDR[encoder_n]))     |= 0x01;
     }
 }
 
@@ -140,7 +157,7 @@ void encoder_clear_count(encoder_index_enum encoder_n)
 // 使用示例     内部使用，用户无需关心
 // 备注信息     仅支持正交编码器
 //-------------------------------------------------------------------------------------------------------------------
-static void tim_encoder_dir_init(encoder_index_enum encoder_n, gpio_pin_enum dir_pin, encoder_channel_enum lsb_pin)
+static void tim_encoder_dir_init(encoder_index_enum encoder_n, encoder_channel_enum lsb_pin, gpio_pin_enum dir_pin)
 {
     // 如果程序在输出了断言信息 并且提示出错位置在这里
     // 就去查看你在什么地方调用这个函数 检查你的传入参数
@@ -152,7 +169,7 @@ static void tim_encoder_dir_init(encoder_index_enum encoder_n, gpio_pin_enum dir
     zf_assert(((uint16)lsb_pin >> 13) == 6);
     gpio_init(dir_pin & 0xFF, GPI, 0, GPI_PULL_UP);
     gpio_init(lsb_pin & 0xFF, GPI, 0, GPI_PULL_UP);
-    encoder_dir_pin[encoder_n & 0x0F] = (uint8)dir_pin;
+    encoder_dir_pin[encoder_n & 0x0F + PWMF_ENCODER + 1] = (uint8)(dir_pin & 0xFF);
     switch(encoder_n)
     {
         case TIM0_ENCODER:  TL0=0;  TH0=0;  TMOD|=0x04; TR0=1; break;
@@ -184,7 +201,28 @@ static void tim_encoder_dir_init(encoder_index_enum encoder_n, gpio_pin_enum dir
 //-------------------------------------------------------------------------------------------------------------------
 static void pwm_encoder_dir_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pin, encoder_channel_enum ch2_pin)
 {
-    encoder_quad_init(encoder_n, ch1_pin, ch2_pin);
+//    encoder_quad_init(encoder_n, ch1_pin, ch2_pin);
+    gpio_init(ch1_pin & 0xFF, GPI, 0, GPI_PULL_UP);
+    gpio_init(ch2_pin & 0xFF, GPI, 0, GPI_PULL_UP);
+    encoder_dir_pin[encoder_n & 0x0F] = (uint8)(ch2_pin & 0xFF);
+    
+    
+    PWMX_CR1(ch1_pin) &= 0xFE;
+    PWMX_PS(ch1_pin)  |= ((ch1_pin >> 8) & 0x03) << (((ch1_pin >> 11) & 0x03) * 2);				// 选择引脚
+
+    PWMX_ARRH(ch1_pin) = 0xFF;              // 周期寄存器
+    PWMX_ARRL(ch1_pin) = 0xFF;              // 周期寄存器
+        
+    PWMX_PSCRH(ch1_pin) = 0;                // 分频寄存器
+    PWMX_PSCRL(ch1_pin) = 0;                // 分频寄存器
+
+    PWMX_SMCR(ch1_pin)  = 0x07 | 5 << 4;    // 外部计数模式 , 滤波后的CH1输入
+
+    PWMX_CCERX(ch1_pin) = 0x00;             // 关闭所有输出
+    PWMX_CCERX(ch2_pin) = 0x00;             // 关闭所有输出
+    PWMX_CCMRX(ch1_pin) |= 0x01;	        // 01:CC1 通道被配置为输入，IC1 映射在TI1 上
+    PWMX_CR1(ch1_pin)   |= 0x01; 	        // 开启定时器，向上计数
+    
 }
 
 
@@ -217,9 +255,9 @@ void encoder_quad_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pi
     PWMX_ARRL(ch1_pin) = 0xFF;      // 周期寄存器
 
     PWMX_PSCRH(ch1_pin) = 0;        // 分频寄存器
-    PWMX_PSCRL(ch1_pin) = 1;        // 分频寄存器
+    PWMX_PSCRL(ch1_pin) = 0;        // 分频寄存器
 
-    PWMX_SMCR(ch1_pin) = 0x02; 		// 010:编码器模式2-根据TI2 的电平，计数器在TI1 的边沿向上/向下计数
+    PWMX_SMCR(ch1_pin)  = 0x03; 	// 边沿计数
 
     PWMX_CCERX(ch1_pin) = 0x00;     // 关闭所有输出
     PWMX_CCERX(ch2_pin) = 0x00;     // 关闭所有输出
@@ -260,16 +298,16 @@ void encoder_quad_init(encoder_index_enum encoder_n, encoder_channel_enum ch1_pi
 //             encoder_init_dir(TIM17_ENCODER, IO_P45, TIM17_ENCODER_CH1_P80)
 //             // 使用TIM17_ENCODER 做正交解码使用， 通道1方向信号引脚P45，通道2脉冲信号引脚P80
 //-------------------------------------------------------------------------------------------------------------------
-void encoder_dir_init(uint16 encoder_n, uint16 dir_pin, uint16 lsb_pin)
+void encoder_dir_init(uint16 encoder_n, uint16 lsb_pin, uint16 dir_pin)
 {
     if(encoder_n >= TIM0_ENCODER)
     {
         // 传入的引脚错误
         zf_assert(!((uint16)dir_pin & 0xFF00));
-        tim_encoder_dir_init((encoder_index_enum)encoder_n, (gpio_pin_enum)dir_pin, (encoder_channel_enum)lsb_pin);
+        tim_encoder_dir_init((encoder_index_enum)encoder_n, (encoder_channel_enum)lsb_pin, (gpio_pin_enum)dir_pin);
     }
     else
     {
-        pwm_encoder_dir_init((encoder_index_enum)encoder_n, (encoder_channel_enum)dir_pin, (encoder_channel_enum)lsb_pin);
+        pwm_encoder_dir_init((encoder_index_enum)encoder_n, (encoder_channel_enum)lsb_pin, (encoder_channel_enum)dir_pin);
     }
 }

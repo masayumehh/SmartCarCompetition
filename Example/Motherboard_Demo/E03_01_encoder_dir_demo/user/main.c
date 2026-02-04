@@ -118,10 +118,10 @@ void main(void)
     // STC32G144K只有PWM接口支持正交解码编码器.定时器接口不支持正交编码器。
     // STC32G144K只有PWM接口支持正交解码编码器.定时器接口不支持正交编码器。
 	// 如果，看了此段话再来问，我会再次截图给你这段话。
-    encoder_dir_init(ENCODER_DIR_1, ENCODER_DIR_DIR_1, ENCODER_DIR_PULSE_1);   	// 初始化编码器模块与引脚 带方向增量编码器模式
-    encoder_dir_init(ENCODER_DIR_2, ENCODER_DIR_DIR_2, ENCODER_DIR_PULSE_2);    // 初始化编码器模块与引脚 带方向增量编码器模式
-    encoder_dir_init(ENCODER_DIR_3, ENCODER_DIR_DIR_3, ENCODER_DIR_PULSE_3);    // 初始化编码器模块与引脚 带方向增量编码器模式
-    encoder_dir_init(ENCODER_DIR_4, ENCODER_DIR_DIR_4, ENCODER_DIR_PULSE_4);    // 初始化编码器模块与引脚 带方向增量编码器模式
+    encoder_dir_init(ENCODER_DIR_1, ENCODER_DIR_PULSE_1, ENCODER_DIR_DIR_1);   	// 初始化编码器模块与引脚 带方向增量编码器模式
+    encoder_dir_init(ENCODER_DIR_2, ENCODER_DIR_PULSE_2, ENCODER_DIR_DIR_2);    // 初始化编码器模块与引脚 带方向增量编码器模式
+    encoder_dir_init(ENCODER_DIR_3, ENCODER_DIR_PULSE_3, ENCODER_DIR_DIR_3);    // 初始化编码器模块与引脚 带方向增量编码器模式
+    encoder_dir_init(ENCODER_DIR_4, ENCODER_DIR_PULSE_4, ENCODER_DIR_DIR_4);    // 初始化编码器模块与引脚 带方向增量编码器模式
     
 	// 设置100ms的周期定时器
     pit_ms_init(PIT_CH, 100, pit_handler);                                      // 初始化 PIT 为周期中断 100ms 周期
