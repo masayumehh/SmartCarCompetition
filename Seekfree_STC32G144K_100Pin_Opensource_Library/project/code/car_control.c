@@ -57,7 +57,7 @@
 /** 控制周期最小值，避免 dt 过小导致微分项过大 */
 #define DT_MIN_VALUE             (TUNE_DT_MIN_VALUE)
 /** 编码器计数到速度反馈的缩放比例 */
-#define ENCODER_SPEED_SCALE      (TUNE_ENCODE7R_SPEED_SCALE)
+#define ENCODER_SPEED_SCALE      (TUNE_ENCODER_SPEED_SCALE)
 /** 转向误差低通滤波系数 */
 #define STEER_FILTER_ALPHA       (TUNE_STEER_FILTER_ALPHA)
 /** 判定赛道有效所需的最少有效中线点数 */
@@ -676,4 +676,3 @@ void reset_pid(uint8_t controller_type)
         clear_pid_state(&car_state.pid_speed);  // 重置速度 PID 历史状态。
     }
 }
-

@@ -1,28 +1,33 @@
-#ifndef __CAR_CONTROL_H__  // 防止头文件被重复包含。
-#define __CAR_CONTROL_H__  // 打开本头文件的包含保护。
+﻿#ifndef __CAR_CONTROL_H__
+#define __CAR_CONTROL_H__
 
-#include "stdint.h"  // 提供 uint8_t、uint16_t 等标准整型。
-#include "img_processing.h"  // 提供图像尺寸和中线数组相关定义。
-#include "tuning_params.h"  // 提供控制和调参宏。
+#include "stdint.h"
+#include "img_processing.h"
+#include "tuning_params.h"
 
-/* 图像中期望的赛道中心列。 */
+/**
+ * @file car_control.h
+ * @brief 底盘控制模块头文件
+ */
+
+/* 图像中期望的赛道中心列 */
 #define TARGET_LINE           (IMAGE_WIDTH / 2)
 
-/* 控制器类型选择编号。 */
+/* 控制器类型选择编号 */
 #define CONTROLLER_STEERING   0
 #define CONTROLLER_SPEED      1
 
 typedef struct {
-    float current_speed;    // 当前速度状态缓存。
-    float target_speed;     // 当前目标速度状态缓存。
-    float steering_angle;   // 当前转向角状态缓存。
-    float Kp;               // PID 比例系数。
-    float Ki;               // PID 积分系数。
-    float Kd;               // PID 微分系数。
-    float integral;         // PID 积分累计值。
-    float prev_error;       // PID 上一拍误差。
-    float output;           // PID 上一次输出值。
-} PID_Controller;           // 通用 PID 控制器结构体。
+    float current_speed;   // 当前速度状态缓存。
+    float target_speed;    // 当前目标速度状态缓存。
+    float steering_angle;  // 当前转向角状态缓存。
+    float Kp;              // PID 比例系数。
+    float Ki;              // PID 积分系数。
+    float Kd;              // PID 微分系数。
+    float integral;        // PID 积分累计值。
+    float prev_error;      // PID 上一拍误差。
+    float output;          // PID 上一次输出值。
+} PID_Controller;          // 通用 PID 控制器结构体。
 
 typedef struct {
     float current_speed;          // 当前车辆速度反馈。
@@ -50,4 +55,4 @@ void set_target_speed(float target_speed);  // 设置基础目标速度。
 void set_pid_parameters(uint8_t controller_type, float Kp, float Ki, float Kd);  // 设置指定 PID 参数。
 void reset_pid(uint8_t controller_type);  // 清空指定 PID 内部状态。
 
-#endif  // 结束头文件包含保护。
+#endif

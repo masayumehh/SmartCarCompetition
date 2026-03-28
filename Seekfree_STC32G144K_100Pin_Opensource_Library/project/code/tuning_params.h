@@ -43,6 +43,43 @@
 #define TUNE_MIDLINE_SEARCH_STEP           1U      // 中线边界搜索步长。
 #define TUNE_MIDLINE_SMOOTH_WINDOW         2U      // 中线平滑窗口半宽。
 
+/* 十字交叉路口元素参数 */
+#define TUNE_CROSS_SAMPLE_ROW_LOWER_RATIO_NUM      3U     // 十字检测下采样行的分子比例。
+#define TUNE_CROSS_SAMPLE_ROW_LOWER_RATIO_DEN      4U     // 十字检测下采样行的分母比例。
+#define TUNE_CROSS_SAMPLE_ROW_MIDDLE_RATIO_NUM     1U     // 十字检测中采样行的分子比例。
+#define TUNE_CROSS_SAMPLE_ROW_MIDDLE_RATIO_DEN     2U     // 十字检测中采样行的分母比例。
+#define TUNE_CROSS_SAMPLE_ROW_UPPER_RATIO_NUM      1U     // 十字检测上采样行的分子比例。
+#define TUNE_CROSS_SAMPLE_ROW_UPPER_RATIO_DEN      3U     // 十字检测上采样行的分母比例。
+#define TUNE_CROSS_NORMAL_MIN_WIDTH                18U    // 普通直道最小宽度阈值。
+#define TUNE_CROSS_NORMAL_MAX_WIDTH                72U    // 普通直道最大宽度阈值。
+#define TUNE_CROSS_WIDE_MIN_WIDTH                  92U    // 十字中部最小扩展宽度。
+#define TUNE_CROSS_WIDTH_EXPAND_THRESHOLD          28U    // 中部相对下部至少增加的宽度。
+#define TUNE_CROSS_CENTER_DIFF_LIMIT               18     // 上下采样行中心允许最大偏差。
+#define TUNE_CROSS_DETECT_CONFIRM_FRAMES           2U     // 连续多少帧命中后确认进入十字。
+#define TUNE_CROSS_LOST_CONFIRM_FRAMES             2U     // 连续多少帧未命中后确认离开十字主体。
+#define TUNE_CROSS_EXIT_HOLD_FRAMES                6U     // 离开十字后继续保持直行控制的帧数。
+#define TUNE_CROSS_SPECIAL_TARGET_SPEED            35.0f  // 十字专用保守目标速度。
+
+/* 环岛元素参数 */
+#define TUNE_ROUNDABOUT_LOWER_START_RATIO_NUM      2U     // 环岛下部参考区域起始行分子比例。
+#define TUNE_ROUNDABOUT_LOWER_START_RATIO_DEN      3U     // 环岛下部参考区域起始行分母比例。
+#define TUNE_ROUNDABOUT_REF_MIN_ROWS               8U     // 建立下部直道参考所需最少有效行数。
+#define TUNE_ROUNDABOUT_NORMAL_MIN_WIDTH           18U    // 环岛入口下部普通直道最小宽度。
+#define TUNE_ROUNDABOUT_NORMAL_MAX_WIDTH           72U    // 环岛入口下部普通直道最大宽度。
+#define TUNE_ROUNDABOUT_CENTER_DIFF_LIMIT          16U    // 下部中心允许最大波动量。
+#define TUNE_ROUNDABOUT_STABLE_EDGE_TOLERANCE      6U     // 稳定侧边线允许波动量。
+#define TUNE_ROUNDABOUT_MIN_MISSING_ROWS           5U     // 至少连续多少行出现单侧丢线。
+#define TUNE_ROUNDABOUT_MIN_RISING_ROWS            4U     // 弧线发展阶段至少持续多少行。
+#define TUNE_ROUNDABOUT_MIN_FALLING_ROWS           3U     // 弧线回摆阶段至少持续多少行。
+#define TUNE_ROUNDABOUT_ARC_PEAK_MIN_OFFSET        12U    // 弧顶相对原边线最小偏移量。
+#define TUNE_ROUNDABOUT_SUPPLEMENT_MIN_WIDTH       18U    // 估算补线距离的最小阈值。
+#define TUNE_ROUNDABOUT_SUPPLEMENT_MAX_WIDTH       80U    // 估算补线距离的最大阈值。
+#define TUNE_ROUNDABOUT_DETECT_CONFIRM_FRAMES      2U     // 连续多少帧命中后确认进入环岛。
+#define TUNE_ROUNDABOUT_LOST_CONFIRM_FRAMES        3U     // 连续多少帧未命中后确认退出环岛主体。
+#define TUNE_ROUNDABOUT_EXIT_HOLD_FRAMES           6U     // 退出环岛后继续保持状态的帧数。
+#define TUNE_ROUNDABOUT_EDGE_JITTER_TOLERANCE      2U     // 判断弧线单调趋势时允许的小抖动。
+#define TUNE_ROUNDABOUT_SPECIAL_TARGET_SPEED       32.0f  // 环岛专用保守目标速度。
+
 /* 防跑飞与保护参数 */
 #define TUNE_TRACK_VALID_MIN_POINTS        16      // 赛道有效判定最小点数。
 #define TUNE_FAILSAFE_RELEASE_FRAMES       5       // 退出保护前需要的连续有效帧数。

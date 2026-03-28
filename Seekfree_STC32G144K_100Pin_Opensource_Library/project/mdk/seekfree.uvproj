@@ -818,6 +818,43 @@
         </Group>
         <Group>
           <GroupName>code</GroupName>
+          <Files>
+            <File>
+              <FileName>img_processing.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\code\img_processing.c</FilePath>
+            </File>
+            <File>
+              <FileName>img_processing.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\img_processing.h</FilePath>
+            </File>
+            <File>
+              <FileName>car_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\code\car_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>car_control.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\car_control.h</FilePath>
+            </File>
+            <File>
+              <FileName>cross_element.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\code\cross_element.c</FilePath>
+            </File>
+            <File>
+              <FileName>cross_element.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\cross_element.h</FilePath>
+            </File>
+            <File>
+              <FileName>tuning_params.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\tuning_params.h</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>user</GroupName>
