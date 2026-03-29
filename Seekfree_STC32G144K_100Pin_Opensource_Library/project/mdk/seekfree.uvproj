@@ -850,6 +850,36 @@
               <FilePath>..\code\cross_element.h</FilePath>
             </File>
             <File>
+              <FileName>roundabout_element.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\code\roundabout_element.c</FilePath>
+            </File>
+            <File>
+              <FileName>roundabout_element.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\roundabout_element.h</FilePath>
+            </File>
+            <File>
+              <FileName>obstacle_element.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\code\obstacle_element.c</FilePath>
+            </File>
+            <File>
+              <FileName>obstacle_element.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\obstacle_element.h</FilePath>
+            </File>
+            <File>
+              <FileName>slope_element.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\code\slope_element.c</FilePath>
+            </File>
+            <File>
+              <FileName>slope_element.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\slope_element.h</FilePath>
+            </File>
+            <File>
               <FileName>tuning_params.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\code\tuning_params.h</FilePath>

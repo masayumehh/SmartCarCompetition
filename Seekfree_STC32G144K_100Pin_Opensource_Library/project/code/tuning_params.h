@@ -68,6 +68,11 @@
 #define TUNE_ROUNDABOUT_NORMAL_MAX_WIDTH           72U    // 环岛入口下部普通直道最大宽度。
 #define TUNE_ROUNDABOUT_CENTER_DIFF_LIMIT          16U    // 下部中心允许最大波动量。
 #define TUNE_ROUNDABOUT_STABLE_EDGE_TOLERANCE      6U     // 稳定侧边线允许波动量。
+#define TUNE_ROUNDABOUT_MIN_STABLE_ROWS            10U    // 判定稳定边成立所需最少稳定行数。
+#define TUNE_ROUNDABOUT_ENTRY_OFFSET_MIN           8U     // 判定异常边开始失真的最小偏移量。
+#define TUNE_ROUNDABOUT_RECOVER_MIN_ROWS           2U     // 找 B 点时要求连续恢复的最少行数。
+#define TUNE_ROUNDABOUT_B_POINT_MIN_OFFSET         6U     // B 点相对 A 点或参考边的最小偏移量。
+#define TUNE_ROUNDABOUT_C_POINT_MIN_OFFSET         10U    // C 点相对 B 点的最小偏移量。
 #define TUNE_ROUNDABOUT_MIN_MISSING_ROWS           5U     // 至少连续多少行出现单侧丢线。
 #define TUNE_ROUNDABOUT_MIN_RISING_ROWS            4U     // 弧线发展阶段至少持续多少行。
 #define TUNE_ROUNDABOUT_MIN_FALLING_ROWS           3U     // 弧线回摆阶段至少持续多少行。
@@ -76,9 +81,82 @@
 #define TUNE_ROUNDABOUT_SUPPLEMENT_MAX_WIDTH       80U    // 估算补线距离的最大阈值。
 #define TUNE_ROUNDABOUT_DETECT_CONFIRM_FRAMES      2U     // 连续多少帧命中后确认进入环岛。
 #define TUNE_ROUNDABOUT_LOST_CONFIRM_FRAMES        3U     // 连续多少帧未命中后确认退出环岛主体。
+#define TUNE_ROUNDABOUT_EXIT_CONFIRM_FRAMES        2U     // 连续多少帧恢复正常直道后确认开始出环。
 #define TUNE_ROUNDABOUT_EXIT_HOLD_FRAMES           6U     // 退出环岛后继续保持状态的帧数。
+#define TUNE_ROUNDABOUT_EXIT_NORMAL_ROWS           10U    // 判定已经回到正常直道所需的有效行数。
 #define TUNE_ROUNDABOUT_EDGE_JITTER_TOLERANCE      2U     // 判断弧线单调趋势时允许的小抖动。
 #define TUNE_ROUNDABOUT_SPECIAL_TARGET_SPEED       32.0f  // 环岛专用保守目标速度。
+
+/* 路障元素参数 */
+#define TUNE_OBSTACLE_SCAN_TOP_RATIO_NUM           1U     // 路障搜索区域起始行分子比例。
+#define TUNE_OBSTACLE_SCAN_TOP_RATIO_DEN           5U     // 路障搜索区域起始行分母比例。
+#define TUNE_OBSTACLE_SCAN_BOTTOM_RATIO_NUM        4U     // 路障搜索区域结束行分子比例。
+#define TUNE_OBSTACLE_SCAN_BOTTOM_RATIO_DEN        5U     // 路障搜索区域结束行分母比例。
+#define TUNE_OBSTACLE_BLEND_START_RATIO_NUM        2U     // 绕行中线开始明显偏转的行分子比例。
+#define TUNE_OBSTACLE_BLEND_START_RATIO_DEN        3U     // 绕行中线开始明显偏转的行分母比例。
+#define TUNE_OBSTACLE_AVOID_TRIGGER_RATIO_NUM      3U     // 障碍物靠近到触发正式绕行的行分子比例。
+#define TUNE_OBSTACLE_AVOID_TRIGGER_RATIO_DEN      5U     // 障碍物靠近到触发正式绕行的行分母比例。
+#define TUNE_OBSTACLE_TRACK_MIN_WIDTH              18U    // 参与路障检测的最小赛道宽度。
+#define TUNE_OBSTACLE_TRACK_MAX_WIDTH              90U    // 参与路障检测的最大赛道宽度。
+#define TUNE_OBSTACLE_MIN_RUN_WIDTH                4U     // 单行内部黑块最小宽度。
+#define TUNE_OBSTACLE_MAX_RUN_WIDTH                36U    // 单行内部黑块最大宽度。
+#define TUNE_OBSTACLE_MIN_ROWS                     5U     // 内部黑块至少连续出现的行数。
+#define TUNE_OBSTACLE_MIN_HEIGHT                   5U     // 障碍物包围盒最小高度。
+#define TUNE_OBSTACLE_MIN_AREA                     28U    // 障碍物黑块总面积最小阈值。
+#define TUNE_OBSTACLE_MIN_SIDE_GAP                 2U     // 障碍物与赛道边界至少保留的最小间隙。
+#define TUNE_OBSTACLE_SIDE_OFFSET_MIN              5U     // 障碍物中心相对赛道中心最小偏移量。
+#define TUNE_OBSTACLE_CLUSTER_CENTER_LIMIT         12U    // 连续命中行的障碍中心允许最大跳变。
+#define TUNE_OBSTACLE_MAX_WIDTH_SPAN               12U    // 同一障碍在多行中的黑块宽度允许最大波动。
+#define TUNE_OBSTACLE_MAX_EDGE_DRIFT               10U    // 同一障碍在多行中的左右边缘允许最大漂移量。
+#define TUNE_OBSTACLE_DETECT_CONFIRM_FRAMES        2U     // 连续多少帧命中后确认进入路障状态。
+#define TUNE_OBSTACLE_LOST_CONFIRM_FRAMES          2U     // 连续多少帧未命中后确认离开路障主体。
+#define TUNE_OBSTACLE_EXIT_HOLD_FRAMES             5U     // 路障消失后继续保持绕行的帧数。
+#define TUNE_OBSTACLE_CLEARANCE_PIXELS             8U     // 规划绕行通道时，和障碍物至少保留的像素安全余量。
+#define TUNE_OBSTACLE_OUTSIDE_ALLOWANCE_PIXELS     6U     // 必要时允许覆盖中线临时偏出赛道边缘的像素余量。
+#define TUNE_OBSTACLE_APPROACH_BLEND_PERCENT       55U    // 接近阶段把中线拉向绕行通道的基础比例。
+#define TUNE_OBSTACLE_AVOID_BLEND_PERCENT          88U    // 正式绕行阶段把中线拉向绕行通道的基础比例。
+#define TUNE_OBSTACLE_EXIT_BLEND_PERCENT           42U    // 出障阶段保留绕行偏置的基础比例。
+#define TUNE_OBSTACLE_APPROACH_TARGET_SPEED        34.0f  // 路障接近阶段的保守目标速度。
+#define TUNE_OBSTACLE_AVOID_TARGET_SPEED           30.0f  // 路障绕行阶段的更保守目标速度。
+
+/* 坡道元素参数 */
+#define TUNE_SLOPE_SAMPLE_BAND_HALF_HEIGHT         2U     // 坡道宽度采样时，每个采样行上下额外平均的行数。
+#define TUNE_SLOPE_SAMPLE_ROW_LOWER_RATIO_NUM      3U     // 坡道下采样行分子比例。
+#define TUNE_SLOPE_SAMPLE_ROW_LOWER_RATIO_DEN      4U     // 坡道下采样行分母比例。
+#define TUNE_SLOPE_SAMPLE_ROW_MIDDLE_RATIO_NUM     11U    // 坡道中采样行分子比例。
+#define TUNE_SLOPE_SAMPLE_ROW_MIDDLE_RATIO_DEN     20U    // 坡道中采样行分母比例。
+#define TUNE_SLOPE_SAMPLE_ROW_UPPER_RATIO_NUM      7U     // 坡道上采样行分子比例。
+#define TUNE_SLOPE_SAMPLE_ROW_UPPER_RATIO_DEN      20U    // 坡道上采样行分母比例。
+#define TUNE_SLOPE_BLEND_START_RATIO_NUM           2U     // 坡道覆盖中线开始明显拉向引导中心的行分子比例。
+#define TUNE_SLOPE_BLEND_START_RATIO_DEN           3U     // 坡道覆盖中线开始明显拉向引导中心的行分母比例。
+#define TUNE_SLOPE_REF_MIN_ROWS                    8U     // 坡道几何分析要求的最少有效赛道行数。
+#define TUNE_SLOPE_NORMAL_MIN_WIDTH                18U    // 坡道判定允许的普通直道最小宽度。
+#define TUNE_SLOPE_NORMAL_MAX_WIDTH                90U    // 坡道判定允许的普通直道最大宽度。
+#define TUNE_SLOPE_CENTER_DIFF_LIMIT               12U    // 三个采样高度中心允许的最大偏差。
+#define TUNE_SLOPE_EDGE_SYMMETRY_LIMIT             10U    // 左右边线向内收缩量允许的最大不对称差。
+#define TUNE_SLOPE_BASE_WIDTH_TOLERANCE            8U     // 当前宽度与普通直道参考宽度允许的基础偏差。
+#define TUNE_SLOPE_FLAT_WIDTH_TOLERANCE            5U     // 平台/平直直道与参考宽度允许的偏差。
+#define TUNE_SLOPE_TRAPEZOID_MIDDLE_SHRINK         6U     // 中采样宽度相对普通直道参考至少收窄多少才算梯形。
+#define TUNE_SLOPE_TRAPEZOID_UPPER_SHRINK          10U    // 上采样宽度相对普通直道参考至少收窄多少才算梯形。
+#define TUNE_SLOPE_CLOSE_ROW_SHRINK                4U     // 判定“已经接近坡脚”时，下部行至少要比参考收窄多少。
+#define TUNE_SLOPE_CLOSE_MIN_ROWS                  5U     // 至少多少行明显收窄，才认为已经接近坡脚。
+#define TUNE_SLOPE_DETECT_CONFIRM_FRAMES           2U     // 上坡/下坡梯形候选连续命中多少帧后确认切换。
+#define TUNE_SLOPE_LOST_CONFIRM_FRAMES             3U     // 上坡接近阶段候选连续丢失多少帧后认为误触发。
+#define TUNE_SLOPE_PLATFORM_CONFIRM_FRAMES         2U     // 宽度恢复平台外观后连续多少帧确认进入顶部平台。
+#define TUNE_SLOPE_PLATFORM_MIN_HOLD_FRAMES        3U     // 顶部平台至少保持多少帧后才允许寻找下坡。
+#define TUNE_SLOPE_EXIT_CONFIRM_FRAMES             2U     // 下坡结束后连续多少帧恢复平直外观才确认出坡。
+#define TUNE_SLOPE_EXIT_HOLD_FRAMES                5U     // 出坡后继续保持坡道专用控制的帧数。
+#define TUNE_SLOPE_MAX_PHASE_FRAMES                35U    // 某一坡道阶段最长允许保持多少帧，防止状态机卡死。
+#define TUNE_SLOPE_APPROACH_BLEND_PERCENT          35U    // 上坡接近阶段覆盖中线向引导中心拉直的基础比例。
+#define TUNE_SLOPE_CLIMB_BLEND_PERCENT             58U    // 上坡阶段覆盖中线向引导中心拉直的基础比例。
+#define TUNE_SLOPE_PLATFORM_BLEND_PERCENT          25U    // 顶部平台阶段覆盖中线向引导中心拉直的基础比例。
+#define TUNE_SLOPE_DOWNHILL_BLEND_PERCENT          62U    // 下坡阶段覆盖中线向引导中心拉直的基础比例。
+#define TUNE_SLOPE_EXIT_BLEND_PERCENT              30U    // 出坡阶段覆盖中线向引导中心拉直的基础比例。
+#define TUNE_SLOPE_APPROACH_TARGET_SPEED           50.0f  // 上坡前补速阶段的目标速度。
+#define TUNE_SLOPE_CLIMB_TARGET_SPEED              48.0f  // 上坡过程中保持动力的目标速度。
+#define TUNE_SLOPE_PLATFORM_TARGET_SPEED           44.0f  // 顶部平台阶段的回收目标速度。
+#define TUNE_SLOPE_DOWNHILL_TARGET_SPEED           36.0f  // 下坡阶段的保守目标速度。
+#define TUNE_SLOPE_EXIT_TARGET_SPEED               40.0f  // 出坡回正阶段的过渡目标速度。
 
 /* 防跑飞与保护参数 */
 #define TUNE_TRACK_VALID_MIN_POINTS        16      // 赛道有效判定最小点数。

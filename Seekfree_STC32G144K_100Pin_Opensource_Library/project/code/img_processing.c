@@ -431,25 +431,14 @@ void detect_edge_with_boundary(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t d
  */
 void image_processing(uint8_t output_buffer[IMAGE_HEIGHT][IMAGE_WIDTH], int16_t mid_line_buffer[IMAGE_HEIGHT])
 {
-    uint16_t x;  // 当前列坐标。
-    uint16_t y;  // 当前行坐标。
-
     simple_median_filter(mt9v03x_image, temp_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, FILTER_SIZE);  // 先对原始灰度图做中值滤波。
     dynamic_threshold = calculate_otsu_threshold(temp_buffer, IMAGE_WIDTH, IMAGE_HEIGHT);  // 计算当前帧自适应阈值。
     binarize_with_threshold(temp_buffer, output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, dynamic_threshold);  // 生成当前帧二值图。
     get_mid_line(output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, mid_line_buffer);  // 从二值图提取赛道中线。
     detect_edge_with_boundary(output_buffer, edge_buffer, IMAGE_WIDTH, IMAGE_HEIGHT);  // 从二值图提取边缘。
-
-    for (y = 0; y < IMAGE_HEIGHT; y++)
-    {
-        for (x = 0; x < IMAGE_WIDTH; x++)
-        {
-            if (edge_buffer[y][x] == 255U)
-            {
-                output_buffer[y][x] = 128U;  // 用灰色覆盖边缘点，方便显示观察。
-            }
-        }
-    }
+    // 这里不要再把 edge_buffer 重新覆盖回 output_buffer。
+    // 原因是后面的十字、环岛、路障模块都直接读取 output_buffer 做元素判断，
+    // 如果把边缘点写回成 128 等调试标记值，就会破坏“纯二值图”前提，影响元素识别稳定性。
 }
 
 /**
