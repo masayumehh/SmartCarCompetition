@@ -2,7 +2,6 @@
 
 #include <string.h>
 
-#include "zf_common_math.h"
 #include "zf_device_mt9v03x.h"
 
 /**
@@ -13,7 +12,7 @@
  * 1. 图像滤波；
  * 2. OTSU 自适应阈值分割；
  * 3. 赛道中线提取；
- * 4. 边缘标记。
+ * 4. 输出纯二值图供后续元素识别。
  *
  * 本次优化重点是中线提取：
  * - 不再按列提取“横向中线”；
@@ -24,10 +23,6 @@
 
 /** 每帧动态阈值 */
 static uint8_t dynamic_threshold = OTSU_THRESHOLD_INIT;  // 当前帧动态阈值。
-/** 中值滤波临时缓冲 */
-static uint8_t temp_buffer[IMAGE_HEIGHT][IMAGE_WIDTH];  // 滤波后的临时图像缓冲。
-/** 边缘检测临时缓冲 */
-static uint8_t edge_buffer[IMAGE_HEIGHT][IMAGE_WIDTH];  // 边缘检测结果缓冲。
 
 /**
  * @brief 判断某行从指定起点开始是否存在连续白色区段
@@ -288,7 +283,7 @@ void simple_median_filter(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t dst[IM
                     int16_t nx = (int16_t)x + dx;  // 邻域点列坐标。
                     int16_t ny = (int16_t)y + dy;  // 邻域点行坐标。
 
-                    if (nx < 0 || ny < 0 || nx >= width || ny >= height) win[idx++] = src[y][x];  // 越界时退回当前像素值。
+                    if (nx < 0 || ny < 0 || nx >= (int16_t)width || ny >= (int16_t)height) win[idx++] = src[y][x];  // 越界时退回当前像素值。
                     else win[idx++] = src[ny][nx];  // 未越界时读取邻域像素。
                 }
             }
@@ -381,6 +376,12 @@ void get_mid_line(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_t width, uint16
     smooth_mid_line(mid_line, height);  // 对整条中线做一次平滑。
 }
 
+#if 0
+static int16_t abs_i16(int16_t value)
+{
+    return (value >= 0) ? value : (int16_t)(-value);
+}
+
 /**
  * @brief 边缘检测
  * @param src 输入图像
@@ -411,11 +412,12 @@ void detect_edge_with_boundary(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t d
             else if (y == height - 1U) gy = (int16_t)src[y][x] - src[y - 1U][x];  // 底部边界用单边差分。
             else gy = (int16_t)src[y + 1U][x] - src[y - 1U][x];  // 中间区域用上下差分。
 
-            magnitude = (int16_t)abs(gx) + (int16_t)abs(gy);  // 用横向和纵向变化估计边缘强度。
+            magnitude = abs_i16(gx) + abs_i16(gy);  // 用横向和纵向变化估计边缘强度。
             dst[y][x] = (magnitude > 30) ? 255U : 0U;  // 强度超过阈值就标记为边缘。
         }
     }
 }
+#endif
 
 /**
  * @brief 图像处理主流程
@@ -427,18 +429,14 @@ void detect_edge_with_boundary(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t d
  * 2. 计算当前帧的 OTSU 阈值；
  * 3. 按阈值做二值化；
  * 4. 从二值图中逐行提取中线；
- * 5. 计算边缘并在输出图中做标记，便于调试观察。
+ * 5. 输出保持为纯二值图，直接供后续元素识别使用。
  */
 void image_processing(uint8_t output_buffer[IMAGE_HEIGHT][IMAGE_WIDTH], int16_t mid_line_buffer[IMAGE_HEIGHT])
 {
-    simple_median_filter(mt9v03x_image, temp_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, FILTER_SIZE);  // 先对原始灰度图做中值滤波。
-    dynamic_threshold = calculate_otsu_threshold(temp_buffer, IMAGE_WIDTH, IMAGE_HEIGHT);  // 计算当前帧自适应阈值。
-    binarize_with_threshold(temp_buffer, output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, dynamic_threshold);  // 生成当前帧二值图。
+    simple_median_filter(mt9v03x_image, output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, FILTER_SIZE);  // 直接把滤波结果写到输出图，减少一张整图缓冲。
+    dynamic_threshold = calculate_otsu_threshold(output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT);  // 在滤波结果上计算当前帧自适应阈值。
+    binarize_with_threshold(output_buffer, output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, dynamic_threshold);  // 在同一张图上原地二值化，继续节省内存。
     get_mid_line(output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, mid_line_buffer);  // 从二值图提取赛道中线。
-    detect_edge_with_boundary(output_buffer, edge_buffer, IMAGE_WIDTH, IMAGE_HEIGHT);  // 从二值图提取边缘。
-    // 这里不要再把 edge_buffer 重新覆盖回 output_buffer。
-    // 原因是后面的十字、环岛、路障模块都直接读取 output_buffer 做元素判断，
-    // 如果把边缘点写回成 128 等调试标记值，就会破坏“纯二值图”前提，影响元素识别稳定性。
 }
 
 /**
@@ -454,6 +452,7 @@ int16_t get_mid_line_at(uint16_t y, const int16_t mid_line_buffer[IMAGE_HEIGHT],
     return -1;  // 越界时返回无效值。
 }
 
+#if 0
 /**
  * @brief 判断某点是否为边缘点
  * @param x 列坐标
@@ -468,3 +467,4 @@ uint8_t is_edge(uint16_t x, uint16_t y, const uint8_t edge_buffer_in[IMAGE_HEIGH
     if (x < width && y < height) return edge_buffer_in[y][x];  // 坐标合法时返回边缘图中的结果。
     return 0U;  // 越界时默认不是边缘。
 }
+#endif

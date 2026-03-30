@@ -13,14 +13,14 @@
       <uAC6>0</uAC6>
       <TargetOption>
         <TargetCommonOption>
-          <Device>AI8052U-32Bit Series</Device>
-          <Vendor>AI</Vendor>
-          <Cpu>IRAM(0-0x3FFF) XRAM(0x10000-0x2FFFF) IROM(0xFC0000-0xFFFFFF) CLOCK(35000000)</Cpu>
+          <Device>STC32G144K246-32Bit Series</Device>
+          <Vendor>STC</Vendor>
+          <Cpu>IRAM(0-0x3FFF) XRAM(0x10000-0x2FFFF) IROM(0xFC2800-0xFFFFFF) CLOCK(35000000)</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile>"LIB\STARTUP251.ASM" ("80251 Startup Code")</StartupFile>
           <FlashDriverDll></FlashDriverDll>
-          <DeviceId>4096</DeviceId>
-          <RegisterFile>zf_common_headfile.h</RegisterFile>
+          <DeviceId>63697</DeviceId>
+          <RegisterFile>STC32G144K246.H</RegisterFile>
           <MemoryEnv></MemoryEnv>
           <Cmp></Cmp>
           <Asm></Asm>
@@ -211,8 +211,8 @@
               </RCB>
               <IROM>
                 <Type>1</Type>
-                <StartAddress>0xfc0000</StartAddress>
-                <Size>0x40000</Size>
+                <StartAddress>0xfc2800</StartAddress>
+                <Size>0x3d800</Size>
               </IROM>
               <IRAM>
                 <Type>0</Type>

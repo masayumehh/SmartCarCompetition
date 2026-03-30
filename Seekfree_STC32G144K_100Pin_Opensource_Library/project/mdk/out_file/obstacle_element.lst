@@ -1,0 +1,997 @@
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE obstacle_element
+OBJECT MODULE PLACED IN .\out_file\obstacle_element.obj
+COMPILER INVOKED BY: D:\keil c251\C251\BIN\C251.EXE ..\code\obstacle_element.c LARGE FLOAT64 ROM(HUGE) WARNINGLEVEL(3) O
+                    -PTIMIZE(0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_device;..\..\li
+                    -braries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_components\seekfree_as
+                    -sistant) DEBUG PRINT(.\out_file\obstacle_element.lst) TABS(2) OBJECT(.\out_file\obstacle_element.obj) 
+
+stmt  level    source
+
+    1          #include "obstacle_element.h"
+    2          
+    3          /* 路障搜索区域的上边界。 */
+    4          #define OBSTACLE_SCAN_TOP_ROW           ((IMAGE_HEIGHT * TUNE_OBSTACLE_SCAN_TOP_RATIO_NUM) / TUNE_OBSTACL
+             -E_SCAN_TOP_RATIO_DEN)
+    5          /* 路障搜索区域的下边界。 */
+    6          #define OBSTACLE_SCAN_BOTTOM_ROW        ((IMAGE_HEIGHT * TUNE_OBSTACLE_SCAN_BOTTOM_RATIO_NUM) / TUNE_OBST
+             -ACLE_SCAN_BOTTOM_RATIO_DEN)
+    7          /* 开始明显把中线拉向绕行通道的行号。 */
+    8          #define OBSTACLE_BLEND_START_ROW        ((IMAGE_HEIGHT * TUNE_OBSTACLE_BLEND_START_RATIO_NUM) / TUNE_OBST
+             -ACLE_BLEND_START_RATIO_DEN)
+    9          /* 障碍物靠近到该行后，切换到正式绕行状态。 */
+   10          #define OBSTACLE_AVOID_TRIGGER_ROW      ((IMAGE_HEIGHT * TUNE_OBSTACLE_AVOID_TRIGGER_RATIO_NUM) / TUNE_OB
+             -STACLE_AVOID_TRIGGER_RATIO_DEN)
+   11          
+   12          /* 参与路障检测的赛道宽度范围。 */
+   13          #define OBSTACLE_TRACK_MIN_WIDTH        TUNE_OBSTACLE_TRACK_MIN_WIDTH
+   14          #define OBSTACLE_TRACK_MAX_WIDTH        TUNE_OBSTACLE_TRACK_MAX_WIDTH
+   15          /* 单行内部黑块宽度范围。 */
+   16          #define OBSTACLE_MIN_RUN_WIDTH          TUNE_OBSTACLE_MIN_RUN_WIDTH
+   17          #define OBSTACLE_MAX_RUN_WIDTH          TUNE_OBSTACLE_MAX_RUN_WIDTH
+   18          /* 命中路障候选所需的最少行数、最小高度和最小面积。 */
+   19          #define OBSTACLE_MIN_ROWS               TUNE_OBSTACLE_MIN_ROWS
+   20          #define OBSTACLE_MIN_HEIGHT             TUNE_OBSTACLE_MIN_HEIGHT
+   21          #define OBSTACLE_MIN_AREA               TUNE_OBSTACLE_MIN_AREA
+   22          /* 障碍物距离赛道边界至少要保留的原始空间。 */
+   23          #define OBSTACLE_MIN_SIDE_GAP           TUNE_OBSTACLE_MIN_SIDE_GAP
+   24          /* 障碍物中心相对赛道中心最小偏移。 */
+   25          #define OBSTACLE_SIDE_OFFSET_MIN        TUNE_OBSTACLE_SIDE_OFFSET_MIN
+   26          /* 连续命中行之间允许的中心跳变量。 */
+   27          #define OBSTACLE_CLUSTER_CENTER_LIMIT   TUNE_OBSTACLE_CLUSTER_CENTER_LIMIT
+   28          #define OBSTACLE_MAX_WIDTH_SPAN         TUNE_OBSTACLE_MAX_WIDTH_SPAN
+   29          #define OBSTACLE_MAX_EDGE_DRIFT         TUNE_OBSTACLE_MAX_EDGE_DRIFT
+   30          
+   31          /* 状态机确认和保持参数。 */
+   32          #define OBSTACLE_DETECT_CONFIRM_FRAMES  TUNE_OBSTACLE_DETECT_CONFIRM_FRAMES
+   33          #define OBSTACLE_LOST_CONFIRM_FRAMES    TUNE_OBSTACLE_LOST_CONFIRM_FRAMES
+   34          #define OBSTACLE_EXIT_HOLD_FRAMES       TUNE_OBSTACLE_EXIT_HOLD_FRAMES
+   35          
+   36          /* 绕障规划时的安全余量。 */
+   37          #define OBSTACLE_CLEARANCE_PIXELS       TUNE_OBSTACLE_CLEARANCE_PIXELS
+   38          #define OBSTACLE_OUTSIDE_ALLOWANCE      TUNE_OBSTACLE_OUTSIDE_ALLOWANCE_PIXELS
+   39          
+   40          /* 不同阶段的中线偏置比例。 */
+   41          #define OBSTACLE_APPROACH_BLEND_PERCENT TUNE_OBSTACLE_APPROACH_BLEND_PERCENT
+   42          #define OBSTACLE_AVOID_BLEND_PERCENT    TUNE_OBSTACLE_AVOID_BLEND_PERCENT
+   43          #define OBSTACLE_EXIT_BLEND_PERCENT     TUNE_OBSTACLE_EXIT_BLEND_PERCENT
+   44          
+   45          /* 不同阶段的目标速度。 */
+   46          #define OBSTACLE_APPROACH_TARGET_SPEED  TUNE_OBSTACLE_APPROACH_TARGET_SPEED
+   47          #define OBSTACLE_AVOID_TARGET_SPEED     TUNE_OBSTACLE_AVOID_TARGET_SPEED
+   48          
+   49          /**
+   50           * @brief 单帧路障候选结构体
+   51           *
+   52           * 该结构体只描述“当前这一帧像不像路障”，
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 2   
+
+   53           * 不负责跨帧状态保持。
+   54           */
+   55          typedef struct
+   56          {
+   57              uint8_t detected;             /* 当前帧是否命中路障候选。 */
+   58              Obstacle_Side obstacle_side;  /* 路障位于赛道哪一侧。 */
+   59              Obstacle_Side pass_side;      /* 车辆应该从哪一侧绕行。 */
+   60              uint16_t bbox_left;           /* 路障包围盒左边界。 */
+   61              uint16_t bbox_right;          /* 路障包围盒右边界。 */
+   62              uint16_t bbox_top;            /* 路障包围盒上边界。 */
+   63              uint16_t bbox_bottom;         /* 路障包围盒下边界。 */
+   64              uint16_t bbox_width;          /* 路障包围盒宽度。 */
+   65              uint16_t bbox_height;         /* 路障包围盒高度。 */
+   66              int16_t bbox_center;          /* 路障包围盒中心列号。 */
+   67              uint16_t area;                /* 累计命中面积。 */
+   68              int16_t track_center;         /* 候选区域内的平均赛道中心。 */
+   69          } Obstacle_Candidate;
+   70          
+   71          /**
+   72           * @brief 路障状态机上下文
+   73           *
+   74           * 用于跨帧保存当前已经确认的绕行方向、
+   75           * 包围盒位置、引导中心和出障计数等信息。
+   76           */
+   77          typedef struct
+   78          {
+   79              Obstacle_State state;         /* 当前路障状态机状态。 */
+   80              uint8_t detect_count;         /* 连续命中计数。 */
+   81              uint8_t lost_count;           /* 连续丢失计数。 */
+   82              uint8_t exit_hold_count;      /* 出障保持计数。 */
+   83              Obstacle_Side obstacle_side;  /* 当前确认的障碍侧。 */
+   84              Obstacle_Side pass_side;      /* 当前确认的绕行侧。 */
+   85              int16_t guide_center;         /* 当前覆盖中线使用的引导中心。 */
+   86              uint16_t bbox_left;           /* 当前障碍物左边界。 */
+   87              uint16_t bbox_right;          /* 当前障碍物右边界。 */
+   88              uint16_t bbox_bottom;         /* 当前障碍物最靠下的行号。 */
+   89              uint16_t bbox_width;          /* 当前障碍物宽度。 */
+   90              uint16_t bbox_height;         /* 当前障碍物高度。 */
+   91              int16_t bbox_center;          /* 当前障碍物中心列号。 */
+   92          } Obstacle_Context;
+   93          
+   94          /* 全局路障状态机对象。 */
+   95          static Obstacle_Context g_obstacle_ctx =
+   96          {
+   97              OBSTACLE_STATE_NONE,
+   98              0U,
+   99              0U,
+  100              0U,
+  101              OBSTACLE_SIDE_NONE,
+  102              OBSTACLE_SIDE_NONE,
+  103              (int16_t)(IMAGE_WIDTH / 2U),
+  104              0U,
+  105              0U,
+  106              0U,
+  107              0U,
+  108              0U,
+  109              (int16_t)(IMAGE_WIDTH / 2U)
+  110          };
+  111          
+  112          /* 全局路障调试信息对象。 */
+  113          static Obstacle_Debug_Info g_obstacle_debug =
+  114          {
+  115              OBSTACLE_STATE_NONE,
+  116              OBSTACLE_SIDE_NONE,
+  117              OBSTACLE_SIDE_NONE,
+  118              (int16_t)(IMAGE_WIDTH / 2U),
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 3   
+
+  119              0U,
+  120              0U,
+  121              0U,
+  122              (int16_t)(IMAGE_WIDTH / 2U),
+  123              0U
+  124          };
+  125          
+  126          /**
+  127           * @brief 计算两个有符号数的绝对差
+  128           */
+  129          static uint16_t abs_diff_i16(int16_t a, int16_t b)
+  130          {
+  131   1          return (a >= b) ? (uint16_t)(a - b) : (uint16_t)(b - a);
+  132   1      }
+  133          
+  134          /**
+  135           * @brief 将列号限制在图像范围内
+  136           */
+  137          static int16_t clamp_column(int16_t value)
+  138          {
+  139   1          if (value < 0) return 0;
+  140   1          if (value >= (int16_t)IMAGE_WIDTH) return (int16_t)(IMAGE_WIDTH - 1);
+  141   1          return value;
+  142   1      }
+  143          
+  144          /**
+  145           * @brief 获取当前路障阶段对应的基础偏置比例
+  146           */
+  147          static uint16_t get_phase_blend_percent(Obstacle_State state)
+  148          {
+  149   1          /* 接近阶段先中等力度拉向自由通道，避免过早猛打方向。 */
+  150   1          if (state == OBSTACLE_STATE_APPROACHING) return OBSTACLE_APPROACH_BLEND_PERCENT;
+  151   1          /* 正式绕行阶段使用最大的偏置比例，优先保证不碰障碍。 */
+  152   1          if (state == OBSTACLE_STATE_AVOIDING) return OBSTACLE_AVOID_BLEND_PERCENT;
+  153   1          /* 出障阶段保留一部分偏置，避免刚绕过就过快回中。 */
+  154   1          if (state == OBSTACLE_STATE_EXITING) return OBSTACLE_EXIT_BLEND_PERCENT;
+  155   1          /* 其余状态不额外施加避障偏置。 */
+  156   1          return 0U;
+  157   1      }
+  158          
+  159          /**
+  160           * @brief 根据障碍物下边界估算其接近程度
+  161           *
+  162           * 返回 0~100，越接近正式绕行触发线，值越大。
+  163           */
+  164          static uint16_t get_proximity_percent(uint16_t bbox_bottom)
+  165          {
+  166   1          /* 障碍物底部还没到达开始偏置线时，认为“还不够近”。 */
+  167   1          if (bbox_bottom <= OBSTACLE_BLEND_START_ROW) return 0U;
+  168   1          /* 障碍物底部一旦越过正式绕行触发线，就认为“已经非常近”。 */
+  169   1          if (bbox_bottom >= OBSTACLE_AVOID_TRIGGER_ROW) return 100U;
+  170   1      
+  171   1          /* 其余区间按线性比例换算成 0~100 的接近程度。 */
+  172   1          return (uint16_t)(((uint32_t)(bbox_bottom - OBSTACLE_BLEND_START_ROW) * 100U) /
+  173   1                            (uint32_t)(OBSTACLE_AVOID_TRIGGER_ROW - OBSTACLE_BLEND_START_ROW));
+  174   1      }
+  175          
+  176          /**
+  177           * @brief 逐行提取赛道左右边界
+  178           *
+  179           * 这里沿用赛道白区的最左和最右外包边界，
+  180           * 对路障模块来说已经足够用来限定“赛道内部搜索区域”。
+  181           */
+  182          static void build_row_edges(const uint8_t image[IMAGE_HEIGHT][IMAGE_WIDTH],
+  183                                      int16_t left_edges[IMAGE_HEIGHT],
+  184                                      int16_t right_edges[IMAGE_HEIGHT],
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 4   
+
+  185                                      uint8_t valid_rows[IMAGE_HEIGHT])
+  186          {
+  187   1          uint16_t y;
+  188   1      
+  189   1          /* 逐行提取赛道白区的左右外边界，供后续“只在赛道内部搜黑块”使用。 *
+             -/
+  190   1          for (y = 0U; y < IMAGE_HEIGHT; y++)
+  191   1          {
+  192   2              uint16_t x;
+  193   2              uint8_t found = 0U;
+  194   2      
+  195   2              left_edges[y] = -1;
+  196   2              right_edges[y] = -1;
+  197   2              valid_rows[y] = 0U;
+  198   2      
+  199   2              for (x = 0U; x < IMAGE_WIDTH; x++)
+  200   2              {
+  201   3                  if (image[y][x] > 0U)
+  202   3                  {
+  203   4                      if (!found)
+  204   4                      {
+  205   5                          left_edges[y] = (int16_t)x;
+  206   5                          found = 1U;
+  207   5                      }
+  208   4      
+  209   4                      right_edges[y] = (int16_t)x;
+  210   4                  }
+  211   3              }
+  212   2      
+  213   2              if (found && right_edges[y] > left_edges[y])
+  214   2              {
+  215   3                  /* 只有能形成有效宽度时，才把这一行当成有效赛道行。 */
+  216   3                  valid_rows[y] = 1U;
+  217   3              }
+  218   2          }
+  219   1      }
+  220          
+  221          /**
+  222           * @brief 计算普通巡线状态下的默认引导中心
+  223           */
+  224          static int16_t calculate_default_guide_center(const int16_t mid_line[IMAGE_HEIGHT])
+  225          {
+  226   1          uint16_t y;
+  227   1          int32_t sum = 0;
+  228   1          uint16_t count = 0U;
+  229   1      
+  230   1          /* 默认只统计图像下部，避免上半部噪声和元素形变把整体方向带偏。 */
+  231   1          for (y = (uint16_t)(IMAGE_HEIGHT * 2U / 3U); y < IMAGE_HEIGHT; y++)
+  232   1          {
+  233   2              if (mid_line[y] >= 0 && mid_line[y] < IMAGE_WIDTH)
+  234   2              {
+  235   3                  sum += mid_line[y];
+  236   3                  count++;
+  237   3              }
+  238   2          }
+  239   1      
+  240   1          if (count == 0U) return (int16_t)(IMAGE_WIDTH / 2U);
+  241   1          return (int16_t)(sum / (int32_t)count);
+  242   1      }
+  243          
+  244          /**
+  245           * @brief 在单行内寻找最长连续黑块
+  246           *
+  247           * 这里的黑块位于赛道内部，代表可能的障碍投影区域。
+  248           */
+  249          static uint16_t find_row_dark_run(const uint8_t image[IMAGE_HEIGHT][IMAGE_WIDTH],
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 5   
+
+  250                                            uint16_t y,
+  251                                            int16_t left_edge,
+  252                                            int16_t right_edge,
+  253                                            uint16_t *run_left,
+  254                                            uint16_t *run_right)
+  255          {
+  256   1          int16_t x;
+  257   1          int16_t current_start = -1;
+  258   1          uint16_t best_width = 0U;
+  259   1      
+  260   1          /* 这里找的是“赛道内部最长的连续黑块”，不是找所有黑点。 */
+  261   1          *run_left = 0U;
+  262   1          *run_right = 0U;
+  263   1      
+  264   1          for (x = (int16_t)(left_edge + 1); x <= (int16_t)(right_edge - 1); x++)
+  265   1          {
+  266   2              if (image[y][x] == 0U)
+  267   2              {
+  268   3                  if (current_start < 0) current_start = x;
+  269   3              }
+  270   2              else if (current_start >= 0)
+  271   2              {
+  272   3                  uint16_t width = (uint16_t)(x - current_start);
+  273   3      
+  274   3                  if (width > best_width)
+  275   3                  {
+  276   4                      /* 始终保留当前行内部最长的那一段黑块。 */
+  277   4                      best_width = width;
+  278   4                      *run_left = (uint16_t)current_start;
+  279   4                      *run_right = (uint16_t)(x - 1);
+  280   4                  }
+  281   3      
+  282   3                  current_start = -1;
+  283   3              }
+  284   2          }
+  285   1      
+  286   1          if (current_start >= 0)
+  287   1          {
+  288   2              /* 处理一直延伸到本行末尾的黑块。 */
+  289   2              uint16_t width = (uint16_t)(right_edge - current_start);
+  290   2      
+  291   2              if (width > best_width)
+  292   2              {
+  293   3                  best_width = width;
+  294   3                  *run_left = (uint16_t)current_start;
+  295   3                  *run_right = (uint16_t)(right_edge - 1);
+  296   3              }
+  297   2          }
+  298   1      
+  299   1          return best_width;
+  300   1      }
+  301          
+  302          /**
+  303           * @brief 计算当前行的赛道中心
+  304           */
+  305          static int16_t get_track_center_at_row(const int16_t mid_line[IMAGE_HEIGHT],
+  306                                                 const int16_t left_edges[IMAGE_HEIGHT],
+  307                                                 const int16_t right_edges[IMAGE_HEIGHT],
+  308                                                 const uint8_t valid_rows[IMAGE_HEIGHT],
+  309                                                 uint16_t y)
+  310          {
+  311   1          /* 优先相信普通巡线已经提出来的中线。 */
+  312   1          if (mid_line[y] >= 0 && mid_line[y] < IMAGE_WIDTH) return mid_line[y];
+  313   1          /* 中线缺失时，退回到左右边界几何中点。 */
+  314   1          if (valid_rows[y]) return (int16_t)((left_edges[y] + right_edges[y]) / 2);
+  315   1          /* 再不行就退回图像中心，避免返回无效值。 */
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 6   
+
+  316   1          return (int16_t)(IMAGE_WIDTH / 2U);
+  317   1      }
+  318          
+  319          /**
+  320           * @brief 根据障碍物位置和绕行侧，计算当前行最安全的目标中心
+  321           *
+  322           * 这一步不是简单“往旁边偏一点”，而是明确计算障碍物之外的可通行区：
+  323           * 1. 如果空间足够，就把目标中心放在自由通道的中间；
+  324           * 2. 如果空间不足，就允许中线稍微压出赛道边界，优先保证不碰障碍。
+  325           */
+  326          static int16_t calculate_row_pass_target(int16_t left_edge,
+  327                                                   int16_t right_edge,
+  328                                                   int16_t base_center,
+  329                                                   Obstacle_Side pass_side,
+  330                                                   int16_t obstacle_center,
+  331                                                   uint16_t obstacle_width)
+  332          {
+  333   1          int16_t obstacle_left;
+  334   1          int16_t obstacle_right;
+  335   1      
+  336   1          /* 当前行如果连有效赛道都没有，就只能先保留基础中心。 */
+  337   1          if (left_edge < 0 || right_edge < 0 || right_edge <= left_edge) return base_center;
+  338   1      
+  339   1          /* 先把障碍物中心和宽度换算成当前行的障碍物左右边缘。 */
+  340   1          obstacle_left = (int16_t)(obstacle_center - (int16_t)(obstacle_width / 2U));
+  341   1          obstacle_right = (int16_t)(obstacle_center + (int16_t)(obstacle_width / 2U));
+  342   1      
+  343   1          if (pass_side == OBSTACLE_SIDE_RIGHT)
+  344   1          {
+  345   2              int16_t safe_left = (int16_t)(obstacle_right + (int16_t)OBSTACLE_CLEARANCE_PIXELS);
+  346   2              int16_t safe_right = (int16_t)(right_edge + (int16_t)OBSTACLE_OUTSIDE_ALLOWANCE);
+  347   2      
+  348   2              /* 如果右侧可通行空间已经被压得很窄，就把目标中心顶到最右安全位置�
+             -�� */
+  349   2              if (safe_left >= safe_right)
+  350   2              {
+  351   3                  return clamp_column(safe_right);
+  352   3              }
+  353   2      
+  354   2              /* 否则把目标中心放到“右侧自由通道”的中间。 */
+  355   2              return clamp_column((int16_t)((safe_left + safe_right) / 2));
+  356   2          }
+  357   1      
+  358   1          if (pass_side == OBSTACLE_SIDE_LEFT)
+  359   1          {
+  360   2              int16_t safe_left = (int16_t)(left_edge - (int16_t)OBSTACLE_OUTSIDE_ALLOWANCE);
+  361   2              int16_t safe_right = (int16_t)(obstacle_left - (int16_t)OBSTACLE_CLEARANCE_PIXELS);
+  362   2      
+  363   2              /* 左绕时镜像处理。 */
+  364   2              if (safe_left >= safe_right)
+  365   2              {
+  366   3                  return clamp_column(safe_left);
+  367   3              }
+  368   2      
+  369   2              /* 否则把目标中心放到“左侧自由通道”的中间。 */
+  370   2              return clamp_column((int16_t)((safe_left + safe_right) / 2));
+  371   2          }
+  372   1      
+  373   1          /* 没有明确绕行方向时，就不要擅自偏移。 */
+  374   1          return clamp_column(base_center);
+  375   1      }
+  376          
+  377          /**
+  378           * @brief 计算避障模式下的引导中心
+  379           *
+  380           * 用图像下部几行的自由通道目标中心做平均，
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 7   
+
+  381           * 得到一个更稳定的避障“总方向”。
+  382           */
+  383          static int16_t calculate_obstacle_guide_center(const int16_t left_edges[IMAGE_HEIGHT],
+  384                                                         const int16_t right_edges[IMAGE_HEIGHT],
+  385                                                         const uint8_t valid_rows[IMAGE_HEIGHT],
+  386                                                         const int16_t mid_line[IMAGE_HEIGHT],
+  387                                                         Obstacle_Side pass_side,
+  388                                                         int16_t obstacle_center,
+  389                                                         uint16_t obstacle_width)
+  390          {
+  391   1          uint16_t y;
+  392   1          int32_t sum = 0;
+  393   1          uint16_t count = 0U;
+  394   1      
+  395   1          /* 用下部多行的自由通道中心做平均，得到更稳的总体绕行方向。 */
+  396   1          for (y = OBSTACLE_BLEND_START_ROW; y < IMAGE_HEIGHT; y++)
+  397   1          {
+  398   2              if (valid_rows[y])
+  399   2              {
+  400   3                  int16_t base_center = get_track_center_at_row(mid_line, left_edges, right_edges, valid_rows, 
+             -y);
+  401   3                  int16_t target_center = calculate_row_pass_target(left_edges[y],
+  402   3                                                                    right_edges[y],
+  403   3                                                                    base_center,
+  404   3                                                                    pass_side,
+  405   3                                                                    obstacle_center,
+  406   3                                                                    obstacle_width);
+  407   3      
+  408   3                  sum += target_center;
+  409   3                  count++;
+  410   3              }
+  411   2          }
+  412   1      
+  413   1          /* 如果下部拿不到稳定统计，就退回普通巡线的默认引导中心。 */
+  414   1          if (count == 0U) return calculate_default_guide_center(mid_line);
+  415   1          return (int16_t)(sum / (int32_t)count);
+  416   1      }
+  417          
+  418          /**
+  419           * @brief 检测当前帧是否存在有效路障候选
+  420           *
+  421           * 识别逻辑是：
+  422           * 1. 只在赛道内部搜索；
+  423           * 2. 逐行寻找最长黑块；
+  424           * 3. 要求黑块在纵向上大致连续，而不是东一块西一块；
+  425           * 4. 再用高度、面积和偏心量过滤误检。
+  426           */
+  427          static Obstacle_Candidate detect_obstacle_candidate(const uint8_t image[IMAGE_HEIGHT][IMAGE_WIDTH],
+  428                                                              const int16_t mid_line[IMAGE_HEIGHT],
+  429                                                              const int16_t left_edges[IMAGE_HEIGHT],
+  430                                                              const int16_t right_edges[IMAGE_HEIGHT],
+  431                                                              const uint8_t valid_rows[IMAGE_HEIGHT])
+  432          {
+  433   1          /* 默认返回“空候选”，只有全部几何条件都成立才置 detected=1。 */
+  434   1          Obstacle_Candidate candidate = {0U, OBSTACLE_SIDE_NONE, OBSTACLE_SIDE_NONE, 0U, 0U, 0U, 0U, 0U, 0U, -
+             -1, 0U, 0};
+  435   1          uint16_t y;
+  436   1          uint16_t hit_rows = 0U;
+  437   1          int32_t center_sum = 0;
+  438   1          int32_t track_center_sum = 0;
+  439   1          uint16_t min_x = IMAGE_WIDTH;
+  440   1          uint16_t max_x = 0U;
+  441   1          uint16_t min_y = IMAGE_HEIGHT;
+  442   1          uint16_t max_y = 0U;
+  443   1          uint32_t area_sum = 0U;
+  444   1          uint16_t min_run_width = 0xFFFFU;
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 8   
+
+  445   1          uint16_t max_run_width = 0U;
+  446   1          uint16_t min_run_left = IMAGE_WIDTH;
+  447   1          uint16_t max_run_left = 0U;
+  448   1          uint16_t min_run_right = IMAGE_WIDTH;
+  449   1          uint16_t max_run_right = 0U;
+  450   1          uint8_t cluster_started = 0U;
+  451   1          int16_t cluster_center = -1;
+  452   1      
+  453   1          /* 在限定的搜索窗口内逐行寻找“纵向连续”的内部黑块。 */
+  454   1          for (y = OBSTACLE_SCAN_TOP_ROW; y <= OBSTACLE_SCAN_BOTTOM_ROW; y++)
+  455   1          {
+  456   2              if (!valid_rows[y]) continue;
+  457   2      
+  458   2              {
+  459   3                  uint16_t track_width = (uint16_t)(right_edges[y] - left_edges[y] + 1);
+  460   3      
+  461   3                  /* 赛道宽度明显异常时，不在这一行上做路障判断。 */
+  462   3                  if (track_width < OBSTACLE_TRACK_MIN_WIDTH || track_width > OBSTACLE_TRACK_MAX_WIDTH) continu
+             -e;
+  463   3              }
+  464   2      
+  465   2              {
+  466   3                  uint16_t run_left;
+  467   3                  uint16_t run_right;
+  468   3                  uint16_t run_width = find_row_dark_run(image, y, left_edges[y], right_edges[y], &run_left, &r
+             -un_right);
+  469   3      
+  470   3                  if (run_width >= OBSTACLE_MIN_RUN_WIDTH && run_width <= OBSTACLE_MAX_RUN_WIDTH)
+  471   3                  {
+  472   4                      uint16_t left_gap = (uint16_t)(run_left - (uint16_t)left_edges[y]);
+  473   4                      uint16_t right_gap = (uint16_t)((uint16_t)right_edges[y] - run_right);
+  474   4      
+  475   4                      /* 黑块两侧都要还留有赛道空间，否则更像赛道断裂而不是砖块。 *
+             -/
+  476   4                      if (left_gap >= OBSTACLE_MIN_SIDE_GAP && right_gap >= OBSTACLE_MIN_SIDE_GAP)
+  477   4                      {
+  478   5                          int16_t obstacle_center = (int16_t)((run_left + run_right) / 2U);
+  479   5                          int16_t track_center = get_track_center_at_row(mid_line, left_edges, right_edges, val
+             -id_rows, y);
+  480   5      
+  481   5                          /* 黑块如果几乎压在赛道中心上，就不具备明确“左绕/右绕”意
+             -义。 */
+  482   5                          if (abs_diff_i16(obstacle_center, track_center) >= OBSTACLE_SIDE_OFFSET_MIN)
+  483   5                          {
+  484   6                              if (cluster_started &&
+  485   6                                  abs_diff_i16(obstacle_center, cluster_center) > OBSTACLE_CLUSTER_CENTER_LIMIT
+             -)
+  486   6                              {
+  487   7                                  /* 同一个障碍在连续多行里，中心不应该突然大跳。 */
+  488   7                                  continue;
+  489   7                              }
+  490   6      
+  491   6                              /* 通过连续多行累积，得到一个稳定的障碍包围盒。 */
+  492   6                              hit_rows++;
+  493   6                              center_sum += obstacle_center;
+  494   6                              track_center_sum += track_center;
+  495   6                              area_sum += run_width;
+  496   6                              cluster_started = 1U;
+  497   6                              cluster_center = (int16_t)(center_sum / (int32_t)hit_rows);
+  498   6      
+  499   6                              /* 砖块在多行里应当近似矩形，因此宽度和左右边缘都不应大
+             -幅摆动。 */
+  500   6                              if (run_width < min_run_width) min_run_width = run_width;
+  501   6                              if (run_width > max_run_width) max_run_width = run_width;
+  502   6                              if (run_left < min_run_left) min_run_left = run_left;
+  503   6                              if (run_left > max_run_left) max_run_left = run_left;
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 9   
+
+  504   6                              if (run_right < min_run_right) min_run_right = run_right;
+  505   6                              if (run_right > max_run_right) max_run_right = run_right;
+  506   6      
+  507   6                              if (run_left < min_x) min_x = run_left;
+  508   6                              if (run_right > max_x) max_x = run_right;
+  509   6                              if (y < min_y) min_y = y;
+  510   6                              if (y > max_y) max_y = y;
+  511   6                          }
+  512   5                      }
+  513   4                  }
+  514   3              }
+  515   2          }
+  516   1      
+  517   1          /* 命中行数太少，说明还不像一个稳定实体。 */
+  518   1          if (hit_rows < OBSTACLE_MIN_ROWS) return candidate;
+  519   1      
+  520   1          /* 把所有命中行累积成一个整体包围盒。 */
+  521   1          candidate.bbox_left = min_x;
+  522   1          candidate.bbox_right = max_x;
+  523   1          candidate.bbox_top = min_y;
+  524   1          candidate.bbox_bottom = max_y;
+  525   1          candidate.bbox_width = (uint16_t)(max_x - min_x + 1U);
+  526   1          candidate.bbox_height = (uint16_t)(max_y - min_y + 1U);
+  527   1          candidate.bbox_center = (int16_t)(center_sum / (int32_t)hit_rows);
+  528   1          candidate.area = (uint16_t)area_sum;
+  529   1          candidate.track_center = (int16_t)(track_center_sum / (int32_t)hit_rows);
+  530   1      
+  531   1          /* 再用高度和面积过滤太小的噪声目标。 */
+  532   1          if (candidate.bbox_height < OBSTACLE_MIN_HEIGHT) return candidate;
+  533   1          if (candidate.area < OBSTACLE_MIN_AREA) return candidate;
+  534   1          /* 环岛内黑洞虽然也会形成赛道内部黑块，但它的宽度和左右边缘会随行号�
+             -�显弧形变化。
+  535   1           * 真正的砖块更接近矩形，因此这里要求多行之间的宽度和边缘漂移都不能�
+             -�大。 */
+  536   1          if ((uint16_t)(max_run_width - min_run_width) > OBSTACLE_MAX_WIDTH_SPAN) return candidate;
+  537   1          if ((uint16_t)(max_run_left - min_run_left) > OBSTACLE_MAX_EDGE_DRIFT) return candidate;
+  538   1          if ((uint16_t)(max_run_right - min_run_right) > OBSTACLE_MAX_EDGE_DRIFT) return candidate;
+  539   1      
+  540   1          /* 障碍在赛道中心左边，就从右侧绕；反之同理。 */
+  541   1          if (candidate.bbox_center < candidate.track_center)
+  542   1          {
+  543   2              candidate.obstacle_side = OBSTACLE_SIDE_LEFT;
+  544   2              candidate.pass_side = OBSTACLE_SIDE_RIGHT;
+  545   2          }
+  546   1          else
+  547   1          {
+  548   2              candidate.obstacle_side = OBSTACLE_SIDE_RIGHT;
+  549   2              candidate.pass_side = OBSTACLE_SIDE_LEFT;
+  550   2          }
+  551   1      
+  552   1          candidate.detected = 1U;
+  553   1          return candidate;
+  554   1      }
+  555          
+  556          /**
+  557           * @brief 构造路障模式下的覆盖中线
+  558           *
+  559           * 这版中线的核心不是“轻轻偏一下”，而是：
+  560           * 1. 先算出障碍外侧的自由通道；
+  561           * 2. 再按状态阶段和接近程度逐步把中线拉向该通道；
+  562           * 3. 绕行阶段允许中线少量偏出赛道边界，以优先保证不碰撞。
+  563           */
+  564          static void build_obstacle_override_mid_line(const int16_t left_edges[IMAGE_HEIGHT],
+  565                                                       const int16_t right_edges[IMAGE_HEIGHT],
+  566                                                       const uint8_t valid_rows[IMAGE_HEIGHT],
+  567                                                       const int16_t mid_line[IMAGE_HEIGHT],
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 10  
+
+  568                                                       int16_t obstacle_center,
+  569                                                       uint16_t obstacle_width,
+  570                                                       uint16_t bbox_bottom,
+  571                                                       Obstacle_State state,
+  572                                                       Obstacle_Side pass_side,
+  573                                                       int16_t guide_center,
+  574                                                       int16_t override_mid_line[IMAGE_HEIGHT])
+  575          {
+  576   1          uint16_t y;
+  577   1          uint16_t phase_percent = get_phase_blend_percent(state);
+  578   1          uint16_t proximity_percent = get_proximity_percent(bbox_bottom);
+  579   1      
+  580   1          /* 逐行构造覆盖中线：近处偏得更多，远处偏得更缓。 */
+  581   1          for (y = 0U; y < IMAGE_HEIGHT; y++)
+  582   1          {
+  583   2              int16_t base_center = get_track_center_at_row(mid_line, left_edges, right_edges, valid_rows, y);
+  584   2              int16_t target_center = guide_center;
+  585   2              uint16_t row_percent;
+  586   2              uint16_t total_percent;
+  587   2      
+  588   2              if (valid_rows[y])
+  589   2              {
+  590   3                  /* 当前行如果仍有有效赛道，就按这一行自己的自由通道去算目标中心
+             -。 */
+  591   3                  target_center = calculate_row_pass_target(left_edges[y],
+  592   3                                                            right_edges[y],
+  593   3                                                            base_center,
+  594   3                                                            pass_side,
+  595   3                                                            obstacle_center,
+  596   3                                                            obstacle_width);
+  597   3              }
+  598   2      
+  599   2              /* 图像上部更靠近前方，优先偏过去；图像下部更靠近车体，偏移要更稳�
+             -�� */
+  600   2              if (y < OBSTACLE_BLEND_START_ROW) row_percent = 100U;
+  601   2              else if (y <= bbox_bottom) row_percent = 70U;
+  602   2              else if (state == OBSTACLE_STATE_AVOIDING) row_percent = 45U;
+  603   2              else if (state == OBSTACLE_STATE_EXITING) row_percent = 25U;
+  604   2              else row_percent = 0U;
+  605   2      
+  606   2              /* 先叠加状态机阶段强度，再叠加当前行的前视重要性。 */
+  607   2              total_percent = (uint16_t)(((uint32_t)phase_percent * (uint32_t)row_percent) / 100U);
+  608   2      
+  609   2              if (state == OBSTACLE_STATE_APPROACHING)
+  610   2              {
+  611   3                  uint16_t approach_gain = (uint16_t)(20U + (uint16_t)(((uint32_t)proximity_percent * 80U) / 10
+             -0U));
+  612   3                  /* 接近阶段再根据障碍离车多近，逐步放大偏置。 */
+  613   3                  total_percent = (uint16_t)(((uint32_t)total_percent * (uint32_t)approach_gain) / 100U);
+  614   3              }
+  615   2      
+  616   2              if (total_percent == 0U)
+  617   2              {
+  618   3                  /* 这一行如果还不需要明显避障，就保持普通中心。 */
+  619   3                  override_mid_line[y] = clamp_column(base_center);
+  620   3              }
+  621   2              else
+  622   2              {
+  623   3                  int32_t delta = (int32_t)target_center - (int32_t)base_center;
+  624   3                  int16_t blended = (int16_t)(base_center + (int16_t)(delta * (int32_t)total_percent / 100));
+  625   3                  /* 把普通中心按比例平滑拉向绕行目标中心。 */
+  626   3                  override_mid_line[y] = clamp_column(blended);
+  627   3              }
+  628   2          }
+  629   1      }
+  630          
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 11  
+
+  631          /**
+  632           * @brief 初始化路障模块
+  633           */
+  634          void obstacle_element_init(void)
+  635          {
+  636   1          /* 清空路障状态机的全部上下文，回到普通巡线状态。 */
+  637   1          g_obstacle_ctx.state = OBSTACLE_STATE_NONE;
+  638   1          g_obstacle_ctx.detect_count = 0U;
+  639   1          g_obstacle_ctx.lost_count = 0U;
+  640   1          g_obstacle_ctx.exit_hold_count = 0U;
+  641   1          g_obstacle_ctx.obstacle_side = OBSTACLE_SIDE_NONE;
+  642   1          g_obstacle_ctx.pass_side = OBSTACLE_SIDE_NONE;
+  643   1          g_obstacle_ctx.guide_center = (int16_t)(IMAGE_WIDTH / 2U);
+  644   1          g_obstacle_ctx.bbox_left = 0U;
+  645   1          g_obstacle_ctx.bbox_right = 0U;
+  646   1          g_obstacle_ctx.bbox_bottom = 0U;
+  647   1          g_obstacle_ctx.bbox_width = 0U;
+  648   1          g_obstacle_ctx.bbox_height = 0U;
+  649   1          g_obstacle_ctx.bbox_center = (int16_t)(IMAGE_WIDTH / 2U);
+  650   1      
+  651   1          g_obstacle_debug.state = OBSTACLE_STATE_NONE;
+  652   1          g_obstacle_debug.obstacle_side = OBSTACLE_SIDE_NONE;
+  653   1          g_obstacle_debug.pass_side = OBSTACLE_SIDE_NONE;
+  654   1          g_obstacle_debug.obstacle_center = (int16_t)(IMAGE_WIDTH / 2U);
+  655   1          g_obstacle_debug.obstacle_width = 0U;
+  656   1          g_obstacle_debug.obstacle_height = 0U;
+  657   1          g_obstacle_debug.obstacle_bottom_row = 0U;
+  658   1          g_obstacle_debug.guide_center = (int16_t)(IMAGE_WIDTH / 2U);
+  659   1          g_obstacle_debug.candidate_detected = 0U;
+  660   1      }
+  661          
+  662          /**
+  663           * @brief 路障识别与绕行主流程
+  664           */
+  665          uint8_t obstacle_element_process(const uint8_t image[IMAGE_HEIGHT][IMAGE_WIDTH],
+  666                                           const int16_t mid_line[IMAGE_HEIGHT],
+  667                                           int16_t override_mid_line[IMAGE_HEIGHT],
+  668                                           float *override_speed)
+  669          {
+  670   1          /* 当前帧赛道边界。 */
+  671   1          int16_t left_edges[IMAGE_HEIGHT];
+  672   1          int16_t right_edges[IMAGE_HEIGHT];
+  673   1          uint8_t valid_rows[IMAGE_HEIGHT];
+  674   1          /* 当前帧单帧路障候选。 */
+  675   1          Obstacle_Candidate candidate;
+  676   1      
+  677   1          /* 先提边界，再找路障候选。 */
+  678   1          build_row_edges(image, left_edges, right_edges, valid_rows);
+  679   1          candidate = detect_obstacle_candidate(image, mid_line, left_edges, right_edges, valid_rows);
+  680   1      
+  681   1          /* 先把单帧检测结果写进调试信息，方便串口观察。 */
+  682   1          g_obstacle_debug.candidate_detected = candidate.detected;
+  683   1          g_obstacle_debug.obstacle_side = candidate.obstacle_side;
+  684   1          g_obstacle_debug.pass_side = candidate.pass_side;
+  685   1          g_obstacle_debug.obstacle_center = candidate.bbox_center;
+  686   1          g_obstacle_debug.obstacle_width = candidate.bbox_width;
+  687   1          g_obstacle_debug.obstacle_height = candidate.bbox_height;
+  688   1          g_obstacle_debug.obstacle_bottom_row = candidate.bbox_bottom;
+  689   1      
+  690   1          switch (g_obstacle_ctx.state)
+  691   1          {
+  692   2              case OBSTACLE_STATE_NONE:
+  693   2                  if (candidate.detected)
+  694   2                  {
+  695   3                      /* 绕行方向变了，说明前后两次候选不一致，重新累计确认帧。 */
+  696   3                      if (g_obstacle_ctx.pass_side != candidate.pass_side) g_obstacle_ctx.detect_count = 0U;
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 12  
+
+  697   3      
+  698   3                      /* 在空闲态里先累计几帧，避免一帧噪声就误触发。 */
+  699   3                      g_obstacle_ctx.detect_count++;
+  700   3                      g_obstacle_ctx.lost_count = 0U;
+  701   3                      g_obstacle_ctx.obstacle_side = candidate.obstacle_side;
+  702   3                      g_obstacle_ctx.pass_side = candidate.pass_side;
+  703   3                      g_obstacle_ctx.guide_center = calculate_obstacle_guide_center(left_edges,
+  704   3                                                                                     right_edges,
+  705   3                                                                                     valid_rows,
+  706   3                                                                                     mid_line,
+  707   3                                                                                     candidate.pass_side,
+  708   3                                                                                     candidate.bbox_center,
+  709   3                                                                                     candidate.bbox_width);
+  710   3                      g_obstacle_ctx.bbox_left = candidate.bbox_left;
+  711   3                      g_obstacle_ctx.bbox_right = candidate.bbox_right;
+  712   3                      g_obstacle_ctx.bbox_bottom = candidate.bbox_bottom;
+  713   3                      g_obstacle_ctx.bbox_width = candidate.bbox_width;
+  714   3                      g_obstacle_ctx.bbox_height = candidate.bbox_height;
+  715   3                      g_obstacle_ctx.bbox_center = candidate.bbox_center;
+  716   3      
+  717   3                      if (g_obstacle_ctx.detect_count >= OBSTACLE_DETECT_CONFIRM_FRAMES)
+  718   3                      {
+  719   4                          /* 连续命中足够帧后，进入“提前减速并预偏置”的接近阶段。 
+             -*/
+  720   4                          g_obstacle_ctx.state = OBSTACLE_STATE_APPROACHING;
+  721   4                          g_obstacle_ctx.exit_hold_count = 0U;
+  722   4                      }
+  723   3                  }
+  724   2                  else
+  725   2                  {
+  726   3                      /* 空闲态下没命中就继续保持普通巡线。 */
+  727   3                      g_obstacle_ctx.detect_count = 0U;
+  728   3                      g_obstacle_ctx.obstacle_side = OBSTACLE_SIDE_NONE;
+  729   3                      g_obstacle_ctx.pass_side = OBSTACLE_SIDE_NONE;
+  730   3                  }
+  731   2                  break;
+  732   2      
+  733   2              case OBSTACLE_STATE_APPROACHING:
+  734   2                  if (candidate.detected && candidate.pass_side == g_obstacle_ctx.pass_side)
+  735   2                  {
+  736   3                      /* 接近阶段如果持续看到同一障碍，就持续刷新其位置和绕行方向�
+             -� */
+  737   3                      g_obstacle_ctx.lost_count = 0U;
+  738   3                      g_obstacle_ctx.obstacle_side = candidate.obstacle_side;
+  739   3                      g_obstacle_ctx.guide_center = calculate_obstacle_guide_center(left_edges,
+  740   3                                                                                     right_edges,
+  741   3                                                                                     valid_rows,
+  742   3                                                                                     mid_line,
+  743   3                                                                                     candidate.pass_side,
+  744   3                                                                                     candidate.bbox_center,
+  745   3                                                                                     candidate.bbox_width);
+  746   3                      g_obstacle_ctx.bbox_left = candidate.bbox_left;
+  747   3                      g_obstacle_ctx.bbox_right = candidate.bbox_right;
+  748   3                      g_obstacle_ctx.bbox_bottom = candidate.bbox_bottom;
+  749   3                      g_obstacle_ctx.bbox_width = candidate.bbox_width;
+  750   3                      g_obstacle_ctx.bbox_height = candidate.bbox_height;
+  751   3                      g_obstacle_ctx.bbox_center = candidate.bbox_center;
+  752   3      
+  753   3                      if (candidate.bbox_bottom >= OBSTACLE_AVOID_TRIGGER_ROW)
+  754   3                      {
+  755   4                          /* 障碍已经离车够近，切入正式绕行。 */
+  756   4                          g_obstacle_ctx.state = OBSTACLE_STATE_AVOIDING;
+  757   4                      }
+  758   3                  }
+  759   2                  else
+  760   2                  {
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 13  
+
+  761   3                      /* 接近阶段丢失候选时，先给几帧容错。 */
+  762   3                      g_obstacle_ctx.lost_count++;
+  763   3                      if (g_obstacle_ctx.lost_count >= OBSTACLE_LOST_CONFIRM_FRAMES)
+  764   3                      {
+  765   4                          /* 连续丢失足够久，说明大概率不是有效障碍，直接回普通巡线�
+             -�� */
+  766   4                          obstacle_element_init();
+  767   4                      }
+  768   3                  }
+  769   2                  break;
+  770   2      
+  771   2              case OBSTACLE_STATE_AVOIDING:
+  772   2                  if (candidate.detected && candidate.pass_side == g_obstacle_ctx.pass_side)
+  773   2                  {
+  774   3                      /* 正式绕行阶段持续刷新障碍位置，防止中线仍按旧包围盒规划。 *
+             -/
+  775   3                      g_obstacle_ctx.lost_count = 0U;
+  776   3                      g_obstacle_ctx.obstacle_side = candidate.obstacle_side;
+  777   3                      g_obstacle_ctx.guide_center = calculate_obstacle_guide_center(left_edges,
+  778   3                                                                                     right_edges,
+  779   3                                                                                     valid_rows,
+  780   3                                                                                     mid_line,
+  781   3                                                                                     candidate.pass_side,
+  782   3                                                                                     candidate.bbox_center,
+  783   3                                                                                     candidate.bbox_width);
+  784   3                      g_obstacle_ctx.bbox_left = candidate.bbox_left;
+  785   3                      g_obstacle_ctx.bbox_right = candidate.bbox_right;
+  786   3                      g_obstacle_ctx.bbox_bottom = candidate.bbox_bottom;
+  787   3                      g_obstacle_ctx.bbox_width = candidate.bbox_width;
+  788   3                      g_obstacle_ctx.bbox_height = candidate.bbox_height;
+  789   3                      g_obstacle_ctx.bbox_center = candidate.bbox_center;
+  790   3                  }
+  791   2                  else
+  792   2                  {
+  793   3                      /* 绕行中看不到障碍后，不立刻回正，而是先等确认。 */
+  794   3                      g_obstacle_ctx.lost_count++;
+  795   3                      if (g_obstacle_ctx.lost_count >= OBSTACLE_LOST_CONFIRM_FRAMES)
+  796   3                      {
+  797   4                          /* 连续丢失说明车头大概率已经越过障碍，进入出障阶段。 */
+  798   4                          g_obstacle_ctx.state = OBSTACLE_STATE_EXITING;
+  799   4                          g_obstacle_ctx.exit_hold_count = 0U;
+  800   4                      }
+  801   3                  }
+  802   2                  break;
+  803   2      
+  804   2              case OBSTACLE_STATE_EXITING:
+  805   2                  if (candidate.detected && candidate.pass_side == g_obstacle_ctx.pass_side)
+  806   2                  {
+  807   3                      /* 出障期间如果又重新看到同方向障碍，说明还没真正绕过去，回�
+             -�正式绕行。 */
+  808   3                      g_obstacle_ctx.state = OBSTACLE_STATE_AVOIDING;
+  809   3                      g_obstacle_ctx.lost_count = 0U;
+  810   3                      g_obstacle_ctx.guide_center = calculate_obstacle_guide_center(left_edges,
+  811   3                                                                                     right_edges,
+  812   3                                                                                     valid_rows,
+  813   3                                                                                     mid_line,
+  814   3                                                                                     candidate.pass_side,
+  815   3                                                                                     candidate.bbox_center,
+  816   3                                                                                     candidate.bbox_width);
+  817   3                      g_obstacle_ctx.bbox_left = candidate.bbox_left;
+  818   3                      g_obstacle_ctx.bbox_right = candidate.bbox_right;
+  819   3                      g_obstacle_ctx.bbox_bottom = candidate.bbox_bottom;
+  820   3                      g_obstacle_ctx.bbox_width = candidate.bbox_width;
+  821   3                      g_obstacle_ctx.bbox_height = candidate.bbox_height;
+  822   3                      g_obstacle_ctx.bbox_center = candidate.bbox_center;
+  823   3                  }
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 14  
+
+  824   2                  else
+  825   2                  {
+  826   3                      /* 出障阶段额外保持几帧偏置，让车更平顺地回到普通巡线。 */
+  827   3                      g_obstacle_ctx.exit_hold_count++;
+  828   3                      if (g_obstacle_ctx.exit_hold_count >= OBSTACLE_EXIT_HOLD_FRAMES)
+  829   3                      {
+  830   4                          /* 保持结束后，完整退出避障模块。 */
+  831   4                          obstacle_element_init();
+  832   4                      }
+  833   3                  }
+  834   2                  break;
+  835   2      
+  836   2              default:
+  837   2                  obstacle_element_init();
+  838   2                  break;
+  839   2          }
+  840   1      
+  841   1          /* 输出当前已经确认的状态机信息，而不是只输出单帧候选。 */
+  842   1          g_obstacle_debug.state = g_obstacle_ctx.state;
+  843   1          g_obstacle_debug.obstacle_side = g_obstacle_ctx.obstacle_side;
+  844   1          g_obstacle_debug.pass_side = g_obstacle_ctx.pass_side;
+  845   1          g_obstacle_debug.obstacle_center = g_obstacle_ctx.bbox_center;
+  846   1          g_obstacle_debug.obstacle_width = g_obstacle_ctx.bbox_width;
+  847   1          g_obstacle_debug.obstacle_height = g_obstacle_ctx.bbox_height;
+  848   1          g_obstacle_debug.obstacle_bottom_row = g_obstacle_ctx.bbox_bottom;
+  849   1          g_obstacle_debug.guide_center = g_obstacle_ctx.guide_center;
+  850   1      
+  851   1          if (g_obstacle_ctx.state == OBSTACLE_STATE_NONE)
+  852   1          {
+  853   2              /* 没进入路障状态时，不覆盖普通巡线控制。 */
+  854   2              return 0U;
+  855   2          }
+  856   1      
+  857   1          /* 进入路障状态后，生成本帧专用覆盖中线。 */
+  858   1          build_obstacle_override_mid_line(left_edges,
+  859   1                                           right_edges,
+  860   1                                           valid_rows,
+  861   1                                           mid_line,
+  862   1                                           g_obstacle_ctx.bbox_center,
+  863   1                                           g_obstacle_ctx.bbox_width,
+  864   1                                           g_obstacle_ctx.bbox_bottom,
+  865   1                                           g_obstacle_ctx.state,
+  866   1                                           g_obstacle_ctx.pass_side,
+  867   1                                           g_obstacle_ctx.guide_center,
+  868   1                                           override_mid_line);
+  869   1      
+  870   1          if (g_obstacle_ctx.state == OBSTACLE_STATE_APPROACHING)
+  871   1          {
+  872   2              uint16_t proximity_percent = get_proximity_percent(g_obstacle_ctx.bbox_bottom);
+  873   2              float delta_speed = (float)(OBSTACLE_APPROACH_TARGET_SPEED - OBSTACLE_AVOID_TARGET_SPEED);
+  874   2              /* 接近阶段速度随距离线性下滑，越靠近障碍越接近正式绕行速度。 */
+  875   2              *override_speed = OBSTACLE_APPROACH_TARGET_SPEED - delta_speed * ((float)proximity_percent / 100.
+             -0f);
+  876   2          }
+  877   1          else if (g_obstacle_ctx.state == OBSTACLE_STATE_EXITING)
+  878   1          {
+  879   2              /* 出障阶段速度先回到一个中间值，避免刚绕开就猛加速。 */
+  880   2              *override_speed = (OBSTACLE_APPROACH_TARGET_SPEED + OBSTACLE_AVOID_TARGET_SPEED) * 0.5f;
+  881   2          }
+  882   1          else
+  883   1          {
+  884   2              /* 正式绕行阶段使用最保守速度。 */
+  885   2              *override_speed = OBSTACLE_AVOID_TARGET_SPEED;
+  886   2          }
+  887   1      
+  888   1          return 1U;
+C251 COMPILER V5.60.0,  obstacle_element                                                   29/03/26  22:28:09  PAGE 15  
+
+  889   1      }
+  890          
+  891          /**
+  892           * @brief 获取当前路障状态
+  893           * @return Obstacle_State 当前状态机状态
+  894           */
+  895          Obstacle_State obstacle_element_get_state(void)
+  896          {
+  897   1          return g_obstacle_ctx.state;
+  898   1      }
+  899          
+  900          /**
+  901           * @brief 获取当前路障调试信息
+  902           * @return Obstacle_Debug_Info 当前调试信息快照
+  903           */
+  904          Obstacle_Debug_Info obstacle_element_get_debug_info(void)
+  905          {
+  906   1          return g_obstacle_debug;
+  907   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =    ------     ------
+  ecode size           =      6678     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =       984     ------
+  xdata-const size     =    ------     ------
+  edata size           =    ------     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        73     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

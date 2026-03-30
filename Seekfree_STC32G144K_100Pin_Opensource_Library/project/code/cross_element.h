@@ -3,7 +3,7 @@
 
 #include "img_processing.h"
 #include "tuning_params.h"
-#include "stdint.h"
+#include "zf_common_typedef.h"
 
 /**
  * @file cross_element.h

@@ -1,7 +1,7 @@
 ﻿#ifndef __CAR_CONTROL_H__
 #define __CAR_CONTROL_H__
 
-#include "stdint.h"
+#include "zf_common_typedef.h"
 #include "img_processing.h"
 #include "tuning_params.h"
 

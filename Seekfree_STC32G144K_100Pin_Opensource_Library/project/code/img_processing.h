@@ -1,8 +1,9 @@
-﻿#ifndef __IMG_PROCESSING_H__
+#ifndef __IMG_PROCESSING_H__
 #define __IMG_PROCESSING_H__
 
-#include "stdint.h"
+#include "zf_common_typedef.h"
 #include "zf_device_mt9v03x.h"
+#include "tuning_params.h"
 
 /**
  * @file img_processing.h
@@ -61,12 +62,7 @@ void binarize_with_threshold(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t dst
 void get_mid_line(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_t width, uint16_t height, int16_t mid_line[IMAGE_HEIGHT]);  // 从二值图提取逐行中线。
 
 /**
- * @brief 边缘检测（简单梯度）
- */
-void detect_edge_with_boundary(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t dst[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_t width, uint16_t height);  // 计算边缘图。
-
-/**
- * @brief 图像处理主流程：滤波 -> 阈值 -> 二值化 -> 中线 -> 边缘
+ * @brief 图像处理主流程：滤波 -> 阈值 -> 二值化 -> 中线
  */
 void image_processing(uint8_t output_buffer[IMAGE_HEIGHT][IMAGE_WIDTH], int16_t mid_line_buffer[IMAGE_HEIGHT]);  // 执行完整图像处理主流程。
 
@@ -76,10 +72,5 @@ void image_processing(uint8_t output_buffer[IMAGE_HEIGHT][IMAGE_WIDTH], int16_t 
  * 返回 mid_line_buffer[y]，也就是第 y 行赛道中心所在的列号。
  */
 int16_t get_mid_line_at(uint16_t y, const int16_t mid_line_buffer[IMAGE_HEIGHT], uint16_t height);  // 读取指定行中线值。
-
-/**
- * @brief 判断指定点是否为边缘点
- */
-uint8_t is_edge(uint16_t x, uint16_t y, const uint8_t edge_buffer[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_t width, uint16_t height);  // 查询某点是否是边缘点。
 
 #endif

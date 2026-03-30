@@ -21,8 +21,11 @@ typedef unsigned int uint;
 typedef unsigned int ushort;
 typedef unsigned long ulong;
 
+#ifndef ZF_STDINT_TYPES_DEFINED
+#define ZF_STDINT_TYPES_DEFINED
 typedef unsigned char uint8_t;
 typedef unsigned int uint16_t;
 typedef unsigned long uint32_t;
+#endif
 
 #endif

@@ -18,7 +18,7 @@
 
 /*
  * 全局缓冲区说明：
- * g_img_output  : 图像处理输出缓冲（包含二值图/边缘标记）
+ * g_img_output  : 图像处理输出缓冲（纯二值图）
  * g_mid_line    : 赛道中线数组，满足 g_mid_line[y] = 第 y 行的中心列号
  * g_control_dt  : 控制周期（秒），默认 0.01s，初始化后根据摄像头帧率修正
  */
@@ -61,46 +61,60 @@ static void print_control_debug_info(void)
     roundabout_debug = roundabout_element_get_debug_info();  // 读取当前环岛状态机信息。
     slope_debug = slope_element_get_debug_info();  // 读取当前坡道状态机信息。
 
-    printf("mid=%u track=%u stop=%u obs=%u os=%u ps=%u oc=%d ow=%u ob=%u cross=%u wide=%u/%u/%u ring=%u dir=%u side=%u miss=%u supp=%u A=%d/%d B=%d/%d C=%d/%d slope=%u trap=%u flat=%u sw=%u/%u/%u sref=%u close=%u steer_err=%f steer=%f spd_fb=%f spd_tgt=%f duty=%f timeout=%u/%u\r\n",
+    printf("mid=%u track=%u stop=%u obs=%u os=%u ps=%u\r\n",
            debug_info.valid_mid_points,
            debug_info.track_valid,
            debug_info.failsafe_active,
            obstacle_debug.state,
            obstacle_debug.obstacle_side,
-           obstacle_debug.pass_side,
+           obstacle_debug.pass_side);
+
+    printf("oc=%d ow=%u ob=%u cross=%u wide=%u/%u/%u\r\n",
            obstacle_debug.obstacle_center,
            obstacle_debug.obstacle_width,
            obstacle_debug.obstacle_bottom_row,
            cross_debug.state,
            cross_debug.lower_width,
            cross_debug.middle_width,
-           cross_debug.upper_width,
+           cross_debug.upper_width);
+
+    printf("ring=%u dir=%u side=%u miss=%u supp=%u\r\n",
            roundabout_debug.state,
            roundabout_debug.direction,
            roundabout_debug.stable_side,
            roundabout_debug.missing_rows,
-           roundabout_debug.supplement_width,
+           roundabout_debug.supplement_width);
+
+    printf("A=%d/%d B=%d/%d C=%d/%d\r\n",
            roundabout_debug.point_a.row,
            roundabout_debug.point_a.col,
            roundabout_debug.point_b.row,
            roundabout_debug.point_b.col,
            roundabout_debug.point_c.row,
-           roundabout_debug.point_c.col,
+           roundabout_debug.point_c.col);
+
+    printf("slope=%u trap=%u flat=%u sw=%u/%u/%u\r\n",
            slope_debug.state,
            slope_debug.trapezoid_detected,
            slope_debug.flat_detected,
            slope_debug.lower_width,
            slope_debug.middle_width,
-           slope_debug.upper_width,
+           slope_debug.upper_width);
+
+    printf("sref=%u close=%u timeout=%u/%u\r\n",
            slope_debug.base_lower_width,
            slope_debug.close_rows,
-           debug_info.steer_error,
-           state.steering_angle,
-           state.current_speed,
-           debug_info.speed_target,
-           debug_info.speed_output,
            g_frame_timeout_ms,
            g_frame_timeout_limit_ms);
+
+    printf("steer_err=%f steer=%f\r\n",
+           debug_info.steer_error,
+           state.steering_angle);
+
+    printf("spd_fb=%f spd_tgt=%f duty=%f\r\n",
+           state.current_speed,
+           debug_info.speed_target,
+           debug_info.speed_output);
 }
 
 void main(void)
@@ -140,10 +154,16 @@ void main(void)
     {
         system_delay_ms(200);  // 摄像头初始化失败时延时后重试。
     }
+    DMA_LCM_CFG &= (uint8_t)(~0x80U);  // Keil C251 不支持高号中断，这里改为主循环轮询 DMA 完成标志。
 
     /* 5) 主循环：每收到一帧图像，执行一次图像处理与控制输出 */
     while (1)
     {
+        if ((DMA_LCM_STA & 0x03U) != 0U)
+        {
+            mt9v03x_dma_handler();  // 轮询触发 DMA 收尾逻辑，替代 DMA_LCM 中断入口。
+        }
+
         if (mt9v03x_finish_flag)
         {
             float obstacle_override_speed = TUNE_DEFAULT_TARGET_SPEED;  // 路障专用控制时的目标速度。

@@ -35,6 +35,10 @@
 
 #include "zf_common_headfile.h"
 
+#if 0
+// 当前车模工程没有初始化 UART1~UART8 的 DMA 接收中断路径，
+// 先屏蔽这些高号中断，避免 Keil C251 因 interrupt 向量号大于 31 报错。
+// 如果后续改回 UART 调试、蓝牙、无线串口或其它串口外设，再恢复这里即可。
 void DMA_UART1_IRQHandler(void) interrupt DMA_UR1R_VECTOR
 {
     static vuint8 dwon_count = 0;
@@ -236,6 +240,9 @@ void DMA_UART8_IRQHandler(void) interrupt DMA_UR8R_VECTOR
 }
 
 
+
+#endif
+
 void TM0_IRQHandler() interrupt TMR0_VECTOR
 {
     TIM0_CLEAR_FLAG;
@@ -245,6 +252,9 @@ void TM0_IRQHandler() interrupt TMR0_VECTOR
     }
 }
 
+#if 0
+// 当前主程序只实际初始化了 TIM0_PIT，看门狗节拍走 TIM0。
+// 其余这些定时器中断在这份车模程序里没有启用，先统一屏蔽掉。
 void TM1_IRQHandler() interrupt TMR1_VECTOR
 {
     TIM1_CLEAR_FLAG;
@@ -378,6 +388,9 @@ void TM17_TM18_IRQHandler() interrupt TMR17_TMR18_VECTOR
     }
 }
 
+
+#endif
+
 void INT1_IRQHandler() interrupt INT1_VECTOR
 {
 //    if(mt9v03x_finish_flag == 1)
@@ -388,6 +401,9 @@ void INT1_IRQHandler() interrupt INT1_VECTOR
 }
 
 
+#if 0
+// 摄像头 DMA 完成现在改为在 main 主循环里轮询 DMA_LCM_STA，
+// 这里不再使用高号 DMA_LCM 中断，避免 Keil C251 的 interrupt 向量范围限制。
 void DMA_LCM_IRQHandler() interrupt DMA_LCM_VECTOR
 {
     mt9v03x_dma_handler();
@@ -396,6 +412,9 @@ void DMA_LCM_IRQHandler() interrupt DMA_LCM_VECTOR
 
 
 
+
+
+#endif
 
 //#define     INT0_VECTOR             0       //0003H
 //#define     TMR0_VECTOR             1       //000BH
@@ -456,3 +475,5 @@ void DMA_LCM_IRQHandler() interrupt DMA_LCM_VECTOR
 //#define     I2S_VECTOR              62      //01F3H
 //#define     DMA_I2ST_VECTOR         63      //01FBH
 //#define     DMA_I2SR_VECTOR         64      //0203H
+
+

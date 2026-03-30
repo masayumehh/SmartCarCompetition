@@ -62,8 +62,18 @@ typedef unsigned long  	uint32 ;	// 32 bits
 
 typedef signed char     int8   ;	//  8 bits
 typedef signed int      int16  ;	// 16 bits
-typedef signed long     int32  ;	// 32 bits
+typedef signed long     int32  ;
 
+// 与常见 stdint 风格类型名保持兼容，便于移植外部代码
+#ifndef ZF_STDINT_TYPES_DEFINED
+#define ZF_STDINT_TYPES_DEFINED
+typedef uint8           uint8_t;
+typedef uint16          uint16_t;
+typedef uint32          uint32_t;
+typedef int8            int8_t;
+typedef int16           int16_t;
+typedef int32           int32_t;
+#endif
 
 typedef int8   volatile vint8  ;	//  8 bits
 typedef int16  volatile vint16 ;	// 16 bits

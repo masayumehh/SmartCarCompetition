@@ -2,7 +2,7 @@
 #define __ROUNDABOUT_ELEMENT_H__
 
 #include "img_processing.h"
-#include "stdint.h"
+#include "zf_common_typedef.h"
 #include "tuning_params.h"
 
 /**
