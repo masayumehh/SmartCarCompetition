@@ -34,19 +34,29 @@
 /** 舵机可用最大占空比百分比，按实测极限设置 */
 #define SERVO_DUTY_MAX_PERCENT   (8.0f)
 
-/** 电机 PWM 输出引脚 */
-#define MOTOR_PWM_PIN            (PWMD_CH2_P51)
-/** 电机方向引脚，当前版本固定为前进方向 */
-#define MOTOR_DIR_PIN            (IO_P50)
+/** 电机 1 使用 P7.5 输出 PWM，P7.4 固定拉低 */
+#define MOTOR1_PWM_PIN           (PWMB_CH2_P75)
+/** 电机 1 反向端固定拉低，形成单向驱动 */
+#define MOTOR1_GND_PIN           (IO_P74)
+/** 电机 2 使用 P7.7 输出 PWM，P7.6 固定拉低 */
+#define MOTOR2_PWM_PIN           (PWMB_CH4_P77)
+/** 电机 2 反向端固定拉低，形成单向驱动 */
+#define MOTOR2_GND_PIN           (IO_P76)
 /** 电机 PWM 频率 */
 #define MOTOR_PWM_FREQ           (17000)
 
-/** 速度反馈使用的编码器模块 */
-#define SPEED_ENCODER            (PWMA_ENCODER)
-/** 编码器脉冲输入引脚 */
-#define SPEED_ENCODER_PULSE_PIN  (PWMA_ENCODER_CH1P_P60)
-/** 编码器方向输入引脚 */
-#define SPEED_ENCODER_DIR_PIN    (PWMA_ENCODER_CH2P_P62)
+/** 编码器 1 使用的正交解码模块 */
+#define SPEED_ENCODER1           (PWMA_ENCODER)
+/** 编码器 1 A 相输入引脚 */
+#define SPEED_ENCODER1_A_PIN     (PWMA_ENCODER_CH1P_P60)
+/** 编码器 1 B 相输入引脚 */
+#define SPEED_ENCODER1_B_PIN     (PWMA_ENCODER_CH2P_P62)
+/** 编码器 2 使用的正交解码模块 */
+#define SPEED_ENCODER2           (PWMC_ENCODER)
+/** 编码器 2 A 相输入引脚 */
+#define SPEED_ENCODER2_A_PIN     (PWMC_ENCODER_CH1P_P40)
+/** 编码器 2 B 相输入引脚 */
+#define SPEED_ENCODER2_B_PIN     (PWMC_ENCODER_CH2P_P42)
 
 /** PID 积分项限幅，防止积分饱和 */
 #define PID_INTEGRAL_LIMIT       (TUNE_PID_INTEGRAL_LIMIT)
@@ -58,8 +68,13 @@
 #define DT_MIN_VALUE             (TUNE_DT_MIN_VALUE)
 /** 编码器计数到速度反馈的缩放比例 */
 #define ENCODER_SPEED_SCALE      (TUNE_ENCODER_SPEED_SCALE)
+#define MOTOR_MIN_DUTY_PERCENT   (TUNE_MOTOR_MIN_DUTY_PERCENT)
+#define CRAWL_TEST_MODE          (TUNE_CRAWL_TEST_MODE)
+#define CRAWL_TEST_DUTY_PERCENT  (TUNE_CRAWL_TEST_DUTY_PERCENT)
+#define STEERING_ONLY_MODE       (TUNE_STEERING_ONLY_MODE)
 /** 转向误差低通滤波系数 */
 #define STEER_FILTER_ALPHA       (TUNE_STEER_FILTER_ALPHA)
+#define STEER_OFFSET_DEADBAND    (TUNE_STEER_OFFSET_DEADBAND)
 /** 判定赛道有效所需的最少有效中线点数 */
 #define TRACK_VALID_MIN_POINTS   (TUNE_TRACK_VALID_MIN_POINTS)
 /** 急停后恢复控制前，需要连续满足多少帧有效赛道 */
@@ -81,6 +96,18 @@
 #define STRAIGHT_SLOPE_DEADBAND       (TUNE_STRAIGHT_SLOPE_DEADBAND)
 /** 曲率死区，小于该值视为直道噪声 */
 #define STRAIGHT_CURVATURE_DEADBAND   (TUNE_STRAIGHT_CURVATURE_DEADBAND)
+#define MIDLINE_NEAR_ROWS             (TUNE_MIDLINE_NEAR_ROWS)
+#define MIDLINE_NEAR_WEIGHT           (TUNE_MIDLINE_NEAR_WEIGHT)
+#define STEER_LARGE_ERROR_THRESHOLD   (TUNE_STEER_LARGE_ERROR_THRESHOLD)
+#define STEER_LARGE_ERROR_GAIN        (TUNE_STEER_LARGE_ERROR_GAIN)
+#define STEER_CURVE_GAIN_MIN          (TUNE_STEER_CURVE_GAIN_MIN)
+#define STEER_CURVE_GAIN_MAX          (TUNE_STEER_CURVE_GAIN_MAX)
+#define STEER_CURVE_GAIN_REF          (TUNE_STEER_CURVE_GAIN_REF)
+#define STEER_CURVE_FOLLOW_REF        (TUNE_STEER_CURVE_FOLLOW_REF)
+#define STEER_OFFSET_CURVE_MIN_WEIGHT (TUNE_STEER_OFFSET_CURVE_MIN_WEIGHT)
+#define STEER_ENTER_RATE_DPS          (TUNE_STEER_ENTER_RATE_DPS)
+#define STEER_RELEASE_RATE_DPS        (TUNE_STEER_RELEASE_RATE_DPS)
+#define STEER_REVERSE_RATE_DPS        (TUNE_STEER_REVERSE_RATE_DPS)
 
 /**
  * @brief 赛道几何特征
@@ -109,6 +136,8 @@ static Car_State car_state = {
 
 /** 低通滤波后的转向误差，供舵机控制和速度降速共同使用 */
 static float filtered_steer_error = 0.0f;
+/** 上一拍已经下发到电机的占空比，用于短时丢线时保持动力连续 */
+static float last_motor_duty = 0.0f;
 /** 当前是否处于保护状态 */
 static uint8_t failsafe_active = 0;
 /** 从保护状态恢复时，连续有效赛道帧计数 */
@@ -140,6 +169,28 @@ static float limit_output(float value, float min, float max)
 static float absf_local(float value)
 {
     return (value >= 0.0f) ? value : -value;
+}
+
+static float clamp01_local(float value)
+{
+    if (value < 0.0f) return 0.0f;
+    if (value > 1.0f) return 1.0f;
+    return value;
+}
+
+/**
+ * @brief 把一个控制周期内的正交编码器计数换算成速度反馈
+ * @param pulse_count 本周期累计到的正交编码器计数
+ * @param dt 控制周期，单位秒
+ * @return 换算后的速度反馈值
+ * @details
+ * 对正交编码器来说，脉冲周期越短，单位时间内计数越多，速度也越快。
+ * 因此这里先除以 dt 得到“每秒计数率”，再乘以缩放系数得到速度反馈。
+ */
+static float encoder_count_to_speed(int16 pulse_count, float dt)
+{
+    if (dt < DT_MIN_VALUE) dt = DT_MIN_VALUE;
+    return absf_local((float)pulse_count) * ENCODER_SPEED_SCALE / dt;
 }
 
 /**
@@ -257,8 +308,10 @@ static void control_motor_duty(float duty_percent)
     duty_percent = limit_output(duty_percent, 0.0f, 100.0f);  // 限制占空比百分比范围。
     duty = (uint32)(duty_percent * ((float)PWM_DUTY_MAX / 100.0f));  // 百分比转换成 PWM 计数值。
 
-    gpio_set_level(MOTOR_DIR_PIN, GPIO_HIGH);  // 固定当前版本的电机方向为前进。
-    pwm_set_duty(MOTOR_PWM_PIN, duty);  // 输出电机占空比。
+    gpio_low(MOTOR1_GND_PIN);  // 保持 H 桥这一侧为低电平，方向由接线验证后的 PWM 端决定。
+    gpio_low(MOTOR2_GND_PIN);  // 保持 H 桥这一侧为低电平，方向由接线验证后的 PWM 端决定。
+    pwm_set_duty(MOTOR1_PWM_PIN, duty);  // 同步输出电机 1 占空比。
+    pwm_set_duty(MOTOR2_PWM_PIN, duty);  // 同步输出电机 2 占空比。
 }
 
 /**
@@ -268,23 +321,38 @@ static void control_motor_duty(float duty_percent)
  */
 static void apply_safe_output(void)
 {
-    pwm_set_duty(MOTOR_PWM_PIN, 0);  // 安全状态下立刻停止电机。
+    gpio_low(MOTOR1_GND_PIN);  // 安全状态下保持地脚为低，避免桥臂悬空。
+    gpio_low(MOTOR2_GND_PIN);  // 安全状态下保持地脚为低，避免桥臂悬空。
+    pwm_set_duty(MOTOR1_PWM_PIN, 0);  // 安全状态下立刻停止电机 1。
+    pwm_set_duty(MOTOR2_PWM_PIN, 0);  // 安全状态下立刻停止电机 2。
+    encoder_clear_count(SPEED_ENCODER1);  // 安全状态下同步清编码器 1，避免恢复后读到陈旧计数。
+    encoder_clear_count(SPEED_ENCODER2);  // 安全状态下同步清编码器 2，避免恢复后读到陈旧计数。
     pwm_set_duty(SERVO_PWM_PIN, servo_angle_to_duty(SERVO_CENTER_ANGLE));  // 安全状态下让舵机回中。
     car_state.current_speed = 0.0f;  // 软件状态中的当前速度也同步清零。
     car_state.steering_angle = 0.0f;  // 软件状态中的当前转向角同步回中。
     car_debug_info.speed_output = 0.0f;  // 调试信息中的速度输出同步清零。
+    last_motor_duty = 0.0f;  // 安全状态下同时清空最近一次电机占空比。
 }
 
 /**
  * @brief 获取当前速度反馈
  * @return 编码器反馈的速度值
- * @note 当前实现使用本控制周期内的编码器增量来近似速度。
+ * @param dt 控制周期，单位秒
+ * @note 当前实现读取两路正交编码器的计数率，并取平均作为整车速度反馈。
  */
-static float get_speed_feedback(void)
+static float get_speed_feedback(float dt)
 {
-    int16 pulse_count = encoder_get_count(SPEED_ENCODER);  // 读取本控制周期内编码器累计脉冲数。
-    encoder_clear_count(SPEED_ENCODER);  // 读完后清零，为下一周期重新计数。
-    return absf_local((float)pulse_count) * ENCODER_SPEED_SCALE;  // 把脉冲数换算成速度反馈值。
+    int16 pulse_count_1 = encoder_get_count(SPEED_ENCODER1);  // 读取电机 1 对应编码器本周期累计计数。
+    int16 pulse_count_2 = encoder_get_count(SPEED_ENCODER2);  // 读取电机 2 对应编码器本周期累计计数。
+    float speed_feedback_1;
+    float speed_feedback_2;
+
+    encoder_clear_count(SPEED_ENCODER1);  // 读完后清零，为下一周期重新计数。
+    encoder_clear_count(SPEED_ENCODER2);  // 读完后清零，为下一周期重新计数。
+
+    speed_feedback_1 = encoder_count_to_speed(pulse_count_1, dt);  // 把编码器 1 计数换算成速度。
+    speed_feedback_2 = encoder_count_to_speed(pulse_count_2, dt);  // 把编码器 2 计数换算成速度。
+    return (speed_feedback_1 + speed_feedback_2) * 0.5f;  // 当前速度环取两侧平均速度。
 }
 
 /**
@@ -302,10 +370,11 @@ static uint16_t count_valid_mid_points(const int16_t mid_line[IMAGE_HEIGHT], uin
     uint16_t i;  // 当前检查的行号。
     uint16_t valid_points = 0;  // 当前统计到的有效中线点数量。
 
-    if (line_width == 0 || line_width > IMAGE_HEIGHT) line_width = IMAGE_HEIGHT;  // 传入非法高度时退回整幅图高度。
+    if (line_width == 0 || line_width > IMAGE_HEIGHT) line_width = (uint16_t)((IMAGE_HEIGHT * 2U) / 5U);  // 默认只统计更靠近车前的中下部区域，减少提前看见远端弯道。
 
-    start_idx = (uint16_t)((IMAGE_HEIGHT - line_width) / 2U);  // 选择窗口居中，后续可修改
-    end_idx = (uint16_t)(start_idx + line_width);
+    end_idx = (uint16_t)(IMAGE_HEIGHT - (IMAGE_HEIGHT / 10U));  // 最底部少量区域容易受车体和近场反光干扰，控制时不参与。
+    if (end_idx > line_width) start_idx = (uint16_t)(end_idx - line_width);
+    else start_idx = 0U;
 
     for (i = start_idx; i < end_idx; i++)
     {
@@ -328,7 +397,7 @@ static uint8_t is_track_valid(const int16_t mid_line[IMAGE_HEIGHT], uint16_t lin
 {
     uint16_t valid_threshold;  // 判定赛道有效所需的最少点数。
 
-    if (line_width == 0 || line_width > IMAGE_HEIGHT) line_width = IMAGE_HEIGHT;  // 传入非法高度时退回整幅图高度。
+    if (line_width == 0 || line_width > IMAGE_HEIGHT) line_width = (uint16_t)((IMAGE_HEIGHT * 2U) / 5U);  // 默认只用更靠近车前的中下部视野判断赛道是否可靠。
 
     valid_threshold = line_width / 3U;  // 默认至少要求三分之一的行有有效中线。
     if (valid_threshold < TRACK_VALID_MIN_POINTS) valid_threshold = TRACK_VALID_MIN_POINTS;  // 阈值不能低于最小配置值。
@@ -391,11 +460,20 @@ static Track_Features analyze_track_features(const int16_t mid_line[IMAGE_HEIGHT
     float sum_x2 = 0.0f;  // 所有有效点行号平方和
     float sum_xy = 0.0f;  // 所有有效点“行号 * 列号”的乘积和
     float denominator;    // 后面计算斜率时的分母
+    float weighted_sum_y = 0.0f;  // 近底部加权后的列号总和。
+    float total_weight = 0.0f;  // 偏差计算使用的总权重。
+    float near_sum_y = 0.0f;  // 靠近车前区域的列号总和。
+    uint16_t near_count = 0U;  // 靠近车前区域的有效点数量。
+    uint16_t near_start_idx;
 
-    if (line_width == 0 || line_width > IMAGE_HEIGHT) line_width = IMAGE_HEIGHT;  // 传入非法高度时退回整幅图高度。
+    if (line_width == 0 || line_width > IMAGE_HEIGHT) line_width = (uint16_t)((IMAGE_HEIGHT * 2U) / 5U);  // 默认优先分析更靠近车前的中下部赛道，减小远端噪声和提前入弯。
 
-    start_idx = (uint16_t)((IMAGE_HEIGHT - line_width) / 2U);
-    end_idx = (uint16_t)(start_idx + line_width);
+    end_idx = (uint16_t)(IMAGE_HEIGHT - (IMAGE_HEIGHT / 10U));
+    if (end_idx > line_width) start_idx = (uint16_t)(end_idx - line_width);
+    else start_idx = 0U;
+    if (end_idx > MIDLINE_NEAR_ROWS) near_start_idx = (uint16_t)(end_idx - MIDLINE_NEAR_ROWS);
+    else near_start_idx = start_idx;
+    if (near_start_idx < start_idx) near_start_idx = start_idx;
 
     for (i = start_idx; i < end_idx; i++)
     {
@@ -404,12 +482,21 @@ static Track_Features analyze_track_features(const int16_t mid_line[IMAGE_HEIGHT
             /* 这里把“行号 i”看成自变量，把“中心列号 mid_line[i]”看成因变量。 */
             float x = (float)i;
             float y = (float)mid_line[i];
+            float weight = 1.0f + 1.5f * ((float)(i - start_idx) / (float)((end_idx - start_idx) ? (end_idx - start_idx) : 1U));
 
             sum_x += x;  // 累加行号。
             sum_y += y;  // 累加列号。
             sum_x2 += x * x;  // 累加行号平方。
             sum_xy += x * y;  // 累加行号与列号乘积。
+            weighted_sum_y += y * weight;  // 更靠近车前的行给予更高权重。
+            total_weight += weight;  // 累加偏差计算的总权重。
             features.valid_points++;  // 有效中线点数量加一。
+
+            if (i >= near_start_idx)
+            {
+                near_sum_y += y;  // 记录底部近场区域的中线位置。
+                near_count++;
+            }
         }
     }
 
@@ -418,8 +505,18 @@ static Track_Features analyze_track_features(const int16_t mid_line[IMAGE_HEIGHT
         return features;  // 没有有效点时直接返回全 0 特征。
     }
 
-    /* 平均列坐标减去图像中心列，得到横向偏差。 */
-    features.offset_mean = (sum_y / (float)features.valid_points) - (float)TARGET_LINE;
+    /* 偏差更偏向底部近场，减少普通弯道被远端走势提前拉偏。 */
+    if (total_weight <= 0.0f) total_weight = 1.0f;
+    if (near_count > 0U)
+    {
+        float near_offset = (near_sum_y / (float)near_count) - (float)TARGET_LINE;
+        float weighted_offset = (weighted_sum_y / total_weight) - (float)TARGET_LINE;
+        features.offset_mean = MIDLINE_NEAR_WEIGHT * near_offset + (1.0f - MIDLINE_NEAR_WEIGHT) * weighted_offset;
+    }
+    else
+    {
+        features.offset_mean = (weighted_sum_y / total_weight) - (float)TARGET_LINE;
+    }
     denominator = (float)features.valid_points * sum_x2 - sum_x * sum_x;  // 线性拟合斜率公式的分母。
     if (absf_local(denominator) > 0.001f)
     {
@@ -441,9 +538,81 @@ static Track_Features analyze_track_features(const int16_t mid_line[IMAGE_HEIGHT
  */
 static float calculate_line_deviation_from_features(const Track_Features *features)
 {
-    return features->offset_mean  // 平均偏移是基础转向误差。
-         + features->slope * STEER_SLOPE_GAIN  // 叠加斜率补偿。
-         + features->curvature * STEER_CURVATURE_GAIN;  // 再叠加曲率补偿。
+    float steer_error;
+    float offset_term;
+    float curve_ratio;
+    float offset_weight;
+
+    offset_term = apply_deadband(features->offset_mean, STEER_OFFSET_DEADBAND);
+    curve_ratio = clamp01_local(absf_local(features->curvature) / STEER_CURVE_FOLLOW_REF);
+    offset_weight = 1.0f - (1.0f - STEER_OFFSET_CURVE_MIN_WEIGHT) * curve_ratio;
+
+#if STEERING_ONLY_MODE
+    steer_error = offset_term;  // 推车调舵机阶段只保留基础横向偏移，并给直道小抖动留死区。
+#else
+    steer_error = offset_term * offset_weight  // 弯道越明显，偏差项越只负责微调，不再主导整次回舵。
+                + features->slope * STEER_SLOPE_GAIN  // 用中线走势提前给转向趋势。
+                + features->curvature * STEER_CURVATURE_GAIN;  // 再叠加曲率前馈，让舵机更像顺着赛道弯。
+#endif
+
+    if (absf_local(steer_error) > STEER_LARGE_ERROR_THRESHOLD)
+    {
+        float excess = absf_local(steer_error) - STEER_LARGE_ERROR_THRESHOLD;
+        if (steer_error > 0.0f) steer_error += excess * STEER_LARGE_ERROR_GAIN;
+        else steer_error -= excess * STEER_LARGE_ERROR_GAIN;
+    }
+
+    return steer_error;
+}
+
+static float shape_steering_command(float steer_output, const Track_Features *features, float dt)
+{
+    float curvature_ratio;
+    float curve_gain;
+    float desired_cmd;
+    float current_cmd;
+    float max_delta;
+    float delta_cmd;
+    float normalized_cmd;
+    float shaped_normalized_cmd;
+    float cmd_sign = 1.0f;
+
+    if (dt < DT_MIN_VALUE) dt = DT_MIN_VALUE;
+
+    curvature_ratio = clamp01_local(absf_local(features->curvature) / STEER_CURVE_GAIN_REF);
+    curve_gain = STEER_CURVE_GAIN_MIN + (STEER_CURVE_GAIN_MAX - STEER_CURVE_GAIN_MIN) * curvature_ratio;
+    desired_cmd = steer_output * curve_gain;
+    desired_cmd = limit_output(desired_cmd, -MAX_STEERING_ANGLE, MAX_STEERING_ANGLE);
+
+    if (desired_cmd < 0.0f) cmd_sign = -1.0f;
+    normalized_cmd = clamp01_local(absf_local(desired_cmd) / (float)MAX_STEERING_ANGLE);
+    shaped_normalized_cmd = 0.22f * normalized_cmd + 0.78f * normalized_cmd * normalized_cmd;  // 小偏差时明显更柔，大偏差再逐步抬升。
+    desired_cmd = cmd_sign * shaped_normalized_cmd * (float)MAX_STEERING_ANGLE;
+
+    current_cmd = car_state.steering_angle;
+    if (desired_cmd * current_cmd < 0.0f)
+    {
+        desired_cmd = current_cmd * 0.58f + desired_cmd * 0.42f;  // 反向换向时减少对旧打角的保留，别让错误方向拖得太久。
+        max_delta = STEER_REVERSE_RATE_DPS * dt;  // 过零换向时最慢，避免出弯后一下子抽到另一边。
+    }
+    else if (absf_local(desired_cmd) < absf_local(current_cmd))
+    {
+        desired_cmd = current_cmd * 0.30f + desired_cmd * 0.70f;  // 回舵阶段更快把控制权交还给新目标，压缩 S 线里的拖尾。
+        max_delta = STEER_RELEASE_RATE_DPS * dt;  // 出弯回舵时刻意更慢，减轻反向偏摆。
+    }
+    else
+    {
+        max_delta = (STEER_ENTER_RATE_DPS + 40.0f * curvature_ratio) * dt;  // 进弯时允许更快加舵，曲率越大越敢打。
+    }
+
+    delta_cmd = desired_cmd - current_cmd;
+    if (absf_local(desired_cmd) < 1.8f && absf_local(current_cmd) > 1.8f)
+    {
+        float near_center_limit = 30.0f * dt;  // 靠近回中时进一步放快收尾，减少回正末段拖太久继续摆向另一侧。
+        delta_cmd = limit_output(delta_cmd, -near_center_limit, near_center_limit);
+    }
+    delta_cmd = limit_output(delta_cmd, -max_delta, max_delta);
+    return current_cmd + delta_cmd;
 }
 
 /**
@@ -495,12 +664,16 @@ void car_control_init(void)
     car_state.current_speed = 0.0f;        // 启动时当前速度记为 0
     car_state.steering_angle = 0.0f;       // 当前转向角记为 0
 
-    gpio_init(MOTOR_DIR_PIN, GPO, GPIO_HIGH, GPO_PUSH_PULL);  // 初始化电机方向引脚。
-    pwm_init(MOTOR_PWM_PIN, MOTOR_PWM_FREQ, 0);  // 初始化电机 PWM，初始占空比为 0。
+    gpio_init(MOTOR1_GND_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);  // 电机 1 另一端固定拉低。
+    gpio_init(MOTOR2_GND_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);  // 电机 2 另一端固定拉低。
+    pwm_init(MOTOR1_PWM_PIN, MOTOR_PWM_FREQ, 0);  // 初始化电机 1 PWM，初始占空比为 0。
+    pwm_init(MOTOR2_PWM_PIN, MOTOR_PWM_FREQ, 0);  // 初始化电机 2 PWM，初始占空比为 0。
     pwm_init(SERVO_PWM_PIN, SERVO_PWM_FREQ, servo_angle_to_duty(SERVO_CENTER_ANGLE));  // 初始化舵机 PWM，初始回中。
 
-    encoder_dir_init(SPEED_ENCODER, SPEED_ENCODER_PULSE_PIN, SPEED_ENCODER_DIR_PIN);  // 初始化速度编码器接口。
-    encoder_clear_count(SPEED_ENCODER);  // 清零编码器计数。
+    encoder_quad_init(SPEED_ENCODER1, SPEED_ENCODER1_A_PIN, SPEED_ENCODER1_B_PIN);  // 初始化编码器 1 的正交解码。
+    encoder_quad_init(SPEED_ENCODER2, SPEED_ENCODER2_A_PIN, SPEED_ENCODER2_B_PIN);  // 初始化编码器 2 的正交解码。
+    encoder_clear_count(SPEED_ENCODER1);  // 清零编码器 1 计数。
+    encoder_clear_count(SPEED_ENCODER2);  // 清零编码器 2 计数。
 }
 
 /**
@@ -518,6 +691,7 @@ void car_emergency_stop(void)
     car_debug_info.speed_target = 0.0f;  // 把调试速度目标清零
     clear_pid_state(&car_state.pid_steering);
     clear_pid_state(&car_state.pid_speed); // 清两个 PID 的内部状态
+    last_motor_duty = 0.0f;
     apply_safe_output();
 }
 
@@ -564,7 +738,9 @@ void car_control(int16_t mid_line[IMAGE_HEIGHT], uint16_t line_width, float dt)
         }
         else
         {
-            control_motor_duty(0.0f);  // 短时丢线先停电机，等待下一帧恢复。
+            control_steering(car_state.steering_angle);  // 短时丢线时保持上一拍舵机姿态，避免直道和小弯里突然回中。
+            control_motor_duty(last_motor_duty);  // 短时丢线时保持上一拍电机输出，避免动力一拍一拍抽断。
+            car_debug_info.speed_output = last_motor_duty;
         }
         return;  // 本拍赛道无效，不再继续后面的正常控制。
     }
@@ -594,19 +770,43 @@ void car_control(int16_t mid_line[IMAGE_HEIGHT], uint16_t line_width, float dt)
     car_debug_info.steer_error = filtered_steer_error;  // 记录滤波后的转向误差。
 
     steer_output = pid_calculate(&car_state.pid_steering, 0.0f, filtered_steer_error, dt);  // 计算本拍舵机控制输出。
+    steer_output = shape_steering_command(steer_output, &track_features, dt);  // 按曲率和进/出弯状态整形成更平滑的舵机命令。
     control_steering(steer_output);  // 把舵机输出真正下发到硬件。
+
+#if STEERING_ONLY_MODE
+    control_motor_duty(0.0f);  // 推车调舵机阶段彻底关闭电机输出，避免速度环干扰判断。
+    car_debug_info.speed_target = 0.0f;
+    car_debug_info.speed_output = 0.0f;
+    last_motor_duty = 0.0f;
+    return;
+#endif
+
+#if CRAWL_TEST_MODE
+    speed_output = limit_output(CRAWL_TEST_DUTY_PERCENT, 0.0f, 100.0f);  // 低速调环岛阶段改为开环恒定小占空比，避免低速闭环一冲一停。
+    car_debug_info.speed_target = 0.0f;
+    car_debug_info.speed_output = speed_output;
+    car_debug_info.failsafe_active = failsafe_active;
+    last_motor_duty = speed_output;
+    control_motor_duty(speed_output);
+    return;
+#endif
 
     /* 电机速度也由这条中线的偏差、斜率、曲率共同决定。 */
     speed_target = calculate_curve_speed_target(&track_features);  // 根据赛道状态计算本拍目标速度。
     car_debug_info.speed_target = speed_target;  // 记录当前目标速度。
 
-    speed_feedback = get_speed_feedback();  // 读取当前速度反馈。
+    speed_feedback = get_speed_feedback(dt);  // 读取当前速度反馈。
     car_state.current_speed = speed_feedback;  // 把测速结果写入车辆状态。
 
     speed_output = pid_calculate(&car_state.pid_speed, speed_target, speed_feedback, dt);  // 计算本拍电机输出。
     speed_output = limit_output(speed_output, 0.0f, SPEED_OUTPUT_LIMIT);  // 把电机输出限制在允许范围内。
+    if (speed_output > 0.0f && speed_output < MOTOR_MIN_DUTY_PERCENT)
+    {
+        speed_output = MOTOR_MIN_DUTY_PERCENT;  // 赛道有效且已经准备给动力时，给一个可真正起转的最小占空比。
+    }
     car_debug_info.speed_output = speed_output;  // 记录当前电机输出。
     car_debug_info.failsafe_active = failsafe_active;  // 再同步一次保护状态到调试信息。
+    last_motor_duty = speed_output;  // 保存本拍有效输出，给短时丢线容错时复用。
 
     control_motor_duty(speed_output);  // 把电机占空比真正下发到硬件。
 }

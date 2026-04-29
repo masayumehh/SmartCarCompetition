@@ -24,6 +24,22 @@
 /** 每帧动态阈值 */
 static uint8_t dynamic_threshold = OTSU_THRESHOLD_INIT;  // 当前帧动态阈值。
 
+static uint8_t tune_binary_threshold(uint8_t threshold)
+{
+    int16_t adjusted = (int16_t)threshold + (int16_t)TUNE_IMAGE_DEBUG_THRESHOLD_OFFSET;
+
+    if (adjusted < (int16_t)TUNE_IMAGE_DEBUG_THRESHOLD_MIN)
+    {
+        adjusted = (int16_t)TUNE_IMAGE_DEBUG_THRESHOLD_MIN;
+    }
+    else if (adjusted > (int16_t)TUNE_IMAGE_DEBUG_THRESHOLD_MAX)
+    {
+        adjusted = (int16_t)TUNE_IMAGE_DEBUG_THRESHOLD_MAX;
+    }
+
+    return (uint8_t)adjusted;
+}
+
 /**
  * @brief 判断某行从指定起点开始是否存在连续白色区段
  * @param src 二值图
@@ -137,6 +153,11 @@ static int16_t get_row_centroid(const uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], ui
     return (int16_t)(sum_x / (int32_t)count);
 }
 
+static int16_t abs_i16_local(int16_t value)
+{
+    return (value >= 0) ? value : (int16_t)(-value);
+}
+
 /**
  * @brief 对中线做滑动平均平滑
  * @param mid_line 中线数组
@@ -184,7 +205,7 @@ static void smooth_mid_line(int16_t mid_line[IMAGE_HEIGHT], uint16_t length)
 uint8_t calculate_otsu_threshold(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_t width, uint16_t height)
 {
     uint32_t hist[256] = {0};  // 0~255 灰度直方图。
-    uint32_t total = (uint32_t)width * (uint32_t)height;  // 全图像素总数。
+    uint32_t total = 0U;  // 参与阈值统计的像素总数。
     uint32_t sum_all = 0;  // 全图灰度值总和。
     uint32_t w_b = 0;  // 当前阈值下一侧像素数。
     uint32_t sum_b = 0;  // 当前阈值下一侧灰度总和。
@@ -193,16 +214,31 @@ uint8_t calculate_otsu_threshold(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_
     uint16_t x;  // 当前列索引。
     uint16_t y;  // 当前行索引。
     uint16_t t;  // 当前尝试的阈值。
+    uint16_t y_start;
+    uint16_t y_end;
+    uint16_t x_start;
+    uint16_t x_end;
 
     if (width == 0U || height == 0U) return OTSU_THRESHOLD_INIT;
 
-    for (y = 0; y < height; y++)
+    // OTSU 只统计中下部赛道主视野，尽量避开顶部灯光、远端墙面和边缘背景。
+    y_start = height / 3U;
+    y_end = height - (height / 15U);
+    x_start = width / 12U;
+    x_end = width - (width / 12U);
+    if (y_end <= y_start) y_end = height;
+    if (x_end <= x_start) x_end = width;
+
+    for (y = y_start; y < y_end; y++)
     {
-        for (x = 0; x < width; x++)
+        for (x = x_start; x < x_end; x++)
         {
             hist[src[y][x]]++;
+            total++;
         }
     }
+
+    if (total == 0U) return OTSU_THRESHOLD_INIT;
 
     for (t = 0; t < 256; t++)
     {
@@ -356,20 +392,70 @@ void binarize_with_threshold(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t dst
  */
 void get_mid_line(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_t width, uint16_t height, int16_t mid_line[IMAGE_HEIGHT])
 {
-    uint16_t y;  // 当前处理的行号。
+    int16_t y;  // 当前处理的行号。
+    int16_t prev_mid = (int16_t)(width / 2U);  // 上一行已接受的中线。
+    int16_t prev_width = (int16_t)(width / 3U);  // 上一行已接受的赛道宽度估计。
+    uint8_t prev_valid = 0U;  // 是否已经建立连续跟踪参考。
 
-    for (y = 0; y < height; y++)
+    for (y = (int16_t)(height - 1U); y >= 0; y--)
     {
-        int16_t left_edge = find_left_track_edge(src, y, width);  // 当前行检测到的左边界。
-        int16_t right_edge = find_right_track_edge(src, y, width);  // 当前行检测到的右边界。
+        int16_t left_edge = find_left_track_edge(src, (uint16_t)y, width);  // 当前行检测到的左边界。
+        int16_t right_edge = find_right_track_edge(src, (uint16_t)y, width);  // 当前行检测到的右边界。
+        int16_t candidate_mid = -1;  // 当前行候选中线。
+        int16_t candidate_width = -1;  // 当前行候选赛道宽度。
+        uint8_t edge_valid = 0U;  // 当前行是否找到了可信左右边界。
+        int16_t allowed_center_jump = TUNE_MIDLINE_MAX_CENTER_JUMP;  // 当前行允许的中线跳变阈值。
+        int16_t allowed_width_jump = TUNE_MIDLINE_MAX_WIDTH_JUMP;  // 当前行允许的宽度跳变阈值。
 
         if (left_edge >= 0 && right_edge >= 0 && right_edge > left_edge)
         {
-            mid_line[y] = (int16_t)((left_edge + right_edge) / 2);  // 左右边界都有效时，取中点作为中心。
+            candidate_width = (int16_t)(right_edge - left_edge);
+            candidate_mid = (int16_t)((left_edge + right_edge) / 2);  // 左右边界都有效时，取中点作为候选中心。
+            edge_valid = 1U;
         }
         else
         {
-            mid_line[y] = get_row_centroid(src, y, width);  // 边界不完整时，退回到该行白点重心。
+            candidate_mid = get_row_centroid(src, (uint16_t)y, width);  // 边界不完整时，退回到该行白点重心。
+        }
+
+        if (height > 1U)
+        {
+            uint16_t upper_ratio = (uint16_t)(((height - 1U) - (uint16_t)y) * 255U / (height - 1U));  // 越靠上数值越大。
+            allowed_center_jump = (int16_t)(allowed_center_jump +
+                                  (int16_t)((TUNE_MIDLINE_UPPER_CENTER_JUMP_BONUS * upper_ratio) / 255U));
+            allowed_width_jump = (int16_t)(allowed_width_jump +
+                                 (int16_t)((TUNE_MIDLINE_UPPER_WIDTH_JUMP_BONUS * upper_ratio) / 255U));
+        }
+
+        if (prev_valid)
+        {
+            if (edge_valid)
+            {
+                if (abs_i16_local((int16_t)(candidate_mid - prev_mid)) > allowed_center_jump ||
+                    abs_i16_local((int16_t)(candidate_width - prev_width)) > allowed_width_jump)
+                {
+                    edge_valid = 0U;  // 当前行虽然有白块，但和近场连续轨迹不一致，判为误检。
+                }
+            }
+
+            if (!edge_valid)
+            {
+                if (candidate_mid < 0 || abs_i16_local((int16_t)(candidate_mid - prev_mid)) > allowed_center_jump)
+                {
+                    candidate_mid = prev_mid;  // 重心也不可信时，直接沿用近场连续轨迹，避免被反光或远端白块带偏。
+                }
+            }
+        }
+
+        mid_line[y] = candidate_mid;
+        if (candidate_mid >= 0)
+        {
+            prev_mid = candidate_mid;
+            if (edge_valid && candidate_width > 0)
+            {
+                prev_width = candidate_width;
+            }
+            prev_valid = 1U;
         }
     }
 
@@ -433,9 +519,34 @@ void detect_edge_with_boundary(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t d
  */
 void image_processing(uint8_t output_buffer[IMAGE_HEIGHT][IMAGE_WIDTH], int16_t mid_line_buffer[IMAGE_HEIGHT])
 {
-    simple_median_filter(mt9v03x_image, output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, FILTER_SIZE);  // 直接把滤波结果写到输出图，减少一张整图缓冲。
-    dynamic_threshold = calculate_otsu_threshold(output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT);  // 在滤波结果上计算当前帧自适应阈值。
-    binarize_with_threshold(output_buffer, output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, dynamic_threshold);  // 在同一张图上原地二值化，继续节省内存。
+    uint16_t mask_y;
+    uint16_t mask_x;
+    uint16_t top_mask_rows;
+    uint16_t bottom_mask_rows;
+
+    dynamic_threshold = calculate_otsu_threshold(output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT);  // 直接在已拷贝的静态帧上算阈值，避免读取 DMA 活帧。
+    dynamic_threshold = tune_binary_threshold(dynamic_threshold);  // 对 OTSU 阈值做小范围修正，更适合当前白赛道场地。
+    binarize_with_threshold(output_buffer, output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, dynamic_threshold);  // 在同一张图上原地二值化，继续节省内存并提升处理速度。
+
+    top_mask_rows = (uint16_t)((IMAGE_HEIGHT * TUNE_IMAGE_MASK_TOP_RATIO_NUM) / TUNE_IMAGE_MASK_TOP_RATIO_DEN);
+    bottom_mask_rows = (uint16_t)((IMAGE_HEIGHT * TUNE_IMAGE_MASK_BOTTOM_RATIO_NUM) / TUNE_IMAGE_MASK_BOTTOM_RATIO_DEN);
+
+    // 只做更轻的上下遮罩，保留元素识别需要的远端和中上部赛道信息。
+    for (mask_y = 0U; mask_y < top_mask_rows; mask_y++)
+    {
+        for (mask_x = 0U; mask_x < IMAGE_WIDTH; mask_x++)
+        {
+            output_buffer[mask_y][mask_x] = 0U;
+        }
+    }
+    for (mask_y = (uint16_t)(IMAGE_HEIGHT - bottom_mask_rows); mask_y < IMAGE_HEIGHT; mask_y++)
+    {
+        for (mask_x = 0U; mask_x < IMAGE_WIDTH; mask_x++)
+        {
+            output_buffer[mask_y][mask_x] = 0U;
+        }
+    }
+
     get_mid_line(output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, mid_line_buffer);  // 从二值图提取赛道中线。
 }
 

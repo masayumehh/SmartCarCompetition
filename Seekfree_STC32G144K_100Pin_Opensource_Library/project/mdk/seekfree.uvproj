@@ -880,6 +880,16 @@
               <FilePath>..\code\slope_element.h</FilePath>
             </File>
             <File>
+              <FileName>start_line_element.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\code\start_line_element.c</FilePath>
+            </File>
+            <File>
+              <FileName>start_line_element.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\start_line_element.h</FilePath>
+            </File>
+            <File>
               <FileName>tuning_params.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\code\tuning_params.h</FilePath>

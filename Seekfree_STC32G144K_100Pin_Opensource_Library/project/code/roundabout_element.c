@@ -2,6 +2,7 @@
 
 /* 图像下部参考区域的起始行。 */
 #define ROUNDABOUT_LOWER_START_ROW       ((IMAGE_HEIGHT * TUNE_ROUNDABOUT_LOWER_START_RATIO_NUM) / TUNE_ROUNDABOUT_LOWER_START_RATIO_DEN)
+#define ROUNDABOUT_ENABLE                TUNE_ROUNDABOUT_ENABLE
 /* 正常直道宽度下限。 */
 #define ROUNDABOUT_NORMAL_MIN_WIDTH      TUNE_ROUNDABOUT_NORMAL_MIN_WIDTH
 /* 正常直道宽度上限。 */
@@ -42,6 +43,8 @@
 #define ROUNDABOUT_EDGE_JITTER_TOLERANCE TUNE_ROUNDABOUT_EDGE_JITTER_TOLERANCE
 /* 环岛专用目标速度。 */
 #define ROUNDABOUT_SPECIAL_TARGET_SPEED  TUNE_ROUNDABOUT_SPECIAL_TARGET_SPEED
+#define ROUNDABOUT_ENTRY_PRESTART_ROWS   TUNE_ROUNDABOUT_ENTRY_PRESTART_ROWS
+#define ROUNDABOUT_EXIT_RING_PERCENT     TUNE_ROUNDABOUT_EXIT_RING_PERCENT
 
 /**
  * @brief 单帧环岛候选结构体
@@ -161,6 +164,23 @@ static int16_t clamp_column(int16_t value)
     if (value < 0) return 0;
     if (value >= (int16_t)IMAGE_WIDTH) return (int16_t)(IMAGE_WIDTH - 1);
     return value;
+}
+
+/**
+ * @brief 按百分比在两个列号之间做平滑插值
+ * @param base_col 原始列号
+ * @param target_col 目标列号
+ * @param target_percent 目标列号占比，范围 0~100
+ * @return 插值后并裁剪到图像范围内的列号
+ */
+static int16_t blend_columns(int16_t base_col, int16_t target_col, uint8_t target_percent)
+{
+    int32_t blended;
+
+    if (target_percent > 100U) target_percent = 100U;
+    blended = (int32_t)base_col * (int32_t)(100U - target_percent) + (int32_t)target_col * (int32_t)target_percent;
+    blended /= 100;
+    return clamp_column((int16_t)blended);
 }
 
 /**
@@ -663,6 +683,94 @@ static Roundabout_Candidate detect_candidate_by_stable_side(Roundabout_Side stab
     return candidate;
 }
 
+static uint8_t try_promote_early_roundabout_candidate(Roundabout_Candidate *candidate,
+                                                      Roundabout_Side stable_side,
+                                                      int16_t left_ref,
+                                                      int16_t right_ref)
+{
+    int16_t fallback_peak;
+    uint16_t fallback_width;
+
+    if (candidate->detected) return 1U;
+    if (!candidate->point_a.valid || !candidate->point_b.valid) return 0U;
+    if (candidate->point_a.row <= candidate->point_b.row) return 0U;
+    if (abs_diff_u16((uint16_t)candidate->point_b.col, (uint16_t)candidate->point_a.col) < ROUNDABOUT_B_POINT_MIN_OFFSET) return 0U;
+    if (candidate->missing_rows == 0U && candidate->point_a.row - candidate->point_b.row < 2) return 0U;
+
+    fallback_peak = candidate->point_b.col;  /* 入口早期先用 B 点充当临时弧顶，允许更早进入 ENTERING。 */
+    candidate->point_c.row = candidate->point_b.row;
+    candidate->point_c.col = fallback_peak;
+    candidate->point_c.valid = 1U;
+    candidate->arc_peak = fallback_peak;
+
+    if (stable_side == ROUNDABOUT_SIDE_LEFT)
+    {
+        fallback_width = (uint16_t)abs_diff_u16((uint16_t)fallback_peak, (uint16_t)left_ref);
+    }
+    else
+    {
+        fallback_width = (uint16_t)abs_diff_u16((uint16_t)right_ref, (uint16_t)fallback_peak);
+    }
+
+    if (fallback_width < ROUNDABOUT_SUPPLEMENT_MIN_WIDTH)
+    {
+        fallback_width = ROUNDABOUT_SUPPLEMENT_MIN_WIDTH;
+    }
+    else if (fallback_width > ROUNDABOUT_SUPPLEMENT_MAX_WIDTH)
+    {
+        fallback_width = ROUNDABOUT_SUPPLEMENT_MAX_WIDTH;
+    }
+
+    candidate->supplement_width = fallback_width;
+    candidate->detected = 1U;
+    return 1U;
+}
+
+static uint8_t try_promote_minimal_roundabout_candidate(Roundabout_Candidate *candidate,
+                                                        Roundabout_Side stable_side,
+                                                        int16_t left_ref,
+                                                        int16_t right_ref,
+                                                        uint16_t width_ref)
+{
+    int16_t fallback_edge;
+
+    if (candidate->detected) return 1U;
+    if (!candidate->point_a.valid) return 0U;
+
+    if (!candidate->point_b.valid)
+    {
+        candidate->point_b = candidate->point_a;  // 没有完整恢复段时，先用 A 点构造一个最小入口候选。
+        if (candidate->point_b.row > 0) candidate->point_b.row--;
+        candidate->point_b.valid = 1U;
+    }
+
+    fallback_edge = candidate->point_b.col;
+    if (stable_side == ROUNDABOUT_SIDE_LEFT)
+    {
+        candidate->direction = ROUNDABOUT_DIRECTION_CLOCKWISE;
+        candidate->stable_side = ROUNDABOUT_SIDE_LEFT;
+        candidate->stable_edge = (uint16_t)left_ref;
+        if (fallback_edge <= left_ref) fallback_edge = (int16_t)(left_ref + (int16_t)(width_ref / 2U));
+    }
+    else
+    {
+        candidate->direction = ROUNDABOUT_DIRECTION_COUNTERCLOCKWISE;
+        candidate->stable_side = ROUNDABOUT_SIDE_RIGHT;
+        candidate->stable_edge = (uint16_t)right_ref;
+        if (fallback_edge >= right_ref) fallback_edge = (int16_t)(right_ref - (int16_t)(width_ref / 2U));
+    }
+
+    candidate->point_c.row = candidate->point_b.row;
+    candidate->point_c.col = fallback_edge;
+    candidate->point_c.valid = 1U;
+    candidate->arc_peak = fallback_edge;
+    candidate->supplement_width = width_ref;
+    if (candidate->supplement_width < ROUNDABOUT_SUPPLEMENT_MIN_WIDTH) candidate->supplement_width = ROUNDABOUT_SUPPLEMENT_MIN_WIDTH;
+    if (candidate->supplement_width > ROUNDABOUT_SUPPLEMENT_MAX_WIDTH) candidate->supplement_width = ROUNDABOUT_SUPPLEMENT_MAX_WIDTH;
+    candidate->detected = 1U;
+    return 1U;
+}
+
 /**
  * @brief 汇总当前帧最佳环岛候�? *
  * 分别尝试�? * 1. 左边稳定、右边异常；
@@ -718,6 +826,23 @@ static Roundabout_Candidate detect_roundabout_candidate(const int16_t left_edges
                                                              right_ref,
                                                              width_ref,
                                                              guide_center);
+
+    if (!left_stable_candidate.detected)
+    {
+        try_promote_early_roundabout_candidate(&left_stable_candidate, ROUNDABOUT_SIDE_LEFT, left_ref, right_ref);
+    }
+    if (!right_stable_candidate.detected)
+    {
+        try_promote_early_roundabout_candidate(&right_stable_candidate, ROUNDABOUT_SIDE_RIGHT, left_ref, right_ref);
+    }
+    if (!left_stable_candidate.detected)
+    {
+        try_promote_minimal_roundabout_candidate(&left_stable_candidate, ROUNDABOUT_SIDE_LEFT, left_ref, right_ref, width_ref);
+    }
+    if (!right_stable_candidate.detected)
+    {
+        try_promote_minimal_roundabout_candidate(&right_stable_candidate, ROUNDABOUT_SIDE_RIGHT, left_ref, right_ref, width_ref);
+    }
 
     if (left_stable_candidate.detected && right_stable_candidate.detected)
     {
@@ -808,6 +933,20 @@ static void build_roundabout_override_mid_line(const int16_t left_edges[IMAGE_HE
                                                int16_t override_mid_line[IMAGE_HEIGHT])
 {
     uint16_t y;
+    uint16_t entry_start_row = IMAGE_HEIGHT;
+
+    if (g_roundabout_ctx.point_a.valid)
+    {
+        entry_start_row = (uint16_t)g_roundabout_ctx.point_a.row;
+        if (entry_start_row + ROUNDABOUT_ENTRY_PRESTART_ROWS < IMAGE_HEIGHT)
+        {
+            entry_start_row = (uint16_t)(entry_start_row + ROUNDABOUT_ENTRY_PRESTART_ROWS);
+        }
+        else
+        {
+            entry_start_row = (uint16_t)(IMAGE_HEIGHT - 1U);
+        }
+    }
 
     for (y = 0U; y < IMAGE_HEIGHT; y++)
     {
@@ -817,7 +956,7 @@ static void build_roundabout_override_mid_line(const int16_t left_edges[IMAGE_HE
         if (mid_line[y] >= 0 && mid_line[y] < IMAGE_WIDTH) base_center = mid_line[y];  /* 优先使用普通中线作为基准�?*/
         else if (centers[y] >= 0 && centers[y] < IMAGE_WIDTH) base_center = centers[y]; /* 普通中线缺失时退回真实中心�?*/
 
-        if (!g_roundabout_ctx.point_a.valid || y > (uint16_t)g_roundabout_ctx.point_a.row)
+        if (!g_roundabout_ctx.point_a.valid || y > entry_start_row)
         {
             override_mid_line[y] = base_center;  /* A 点以下仍按普通巡线走�?*/
             continue;
@@ -878,7 +1017,29 @@ static void build_roundabout_override_mid_line(const int16_t left_edges[IMAGE_HE
 
         if (g_roundabout_ctx.state == ROUNDABOUT_STATE_EXITING && mid_line[y] >= 0 && mid_line[y] < IMAGE_WIDTH)
         {
-            override_mid_line[y] = (int16_t)((ring_center + mid_line[y]) / 2);  /* 出环时把环岛中线和普通中线做平滑混合�?*/
+            override_mid_line[y] = blend_columns(mid_line[y], ring_center, ROUNDABOUT_EXIT_RING_PERCENT);  /* 出环时更偏向普通中线，避免继续被拉回环内。*/
+        }
+        else if (g_roundabout_ctx.point_a.valid &&
+                 y > (uint16_t)g_roundabout_ctx.point_a.row &&
+                 y <= entry_start_row)
+        {
+            uint16_t span = entry_start_row - (uint16_t)g_roundabout_ctx.point_a.row;
+            uint8_t ring_percent = 0U;
+            int16_t entry_base_center = g_roundabout_ctx.guide_center;
+
+            if (span > 0U)
+            {
+                ring_percent = (uint8_t)((((uint32_t)(entry_start_row - y) + 1U) * 100U) / (span + 1U));
+            }
+            if (mid_line[y] >= 0 && mid_line[y] < IMAGE_WIDTH)
+            {
+                entry_base_center = blend_columns(mid_line[y], g_roundabout_ctx.guide_center, 70U);  /* 入口预拉阶段更偏向参考引导中心，减轻前一弯残留对入环的干扰。 */
+            }
+            else if (centers[y] >= 0 && centers[y] < IMAGE_WIDTH)
+            {
+                entry_base_center = blend_columns(centers[y], g_roundabout_ctx.guide_center, 70U);
+            }
+            override_mid_line[y] = blend_columns(entry_base_center, ring_center, ring_percent);  /* 在 A 点下方提前渐进拉向环岛中线，让入弯更早介入。*/
         }
         else
         {
@@ -930,6 +1091,17 @@ uint8_t roundabout_element_process(const uint8_t image[IMAGE_HEIGHT][IMAGE_WIDTH
                                    int16_t override_mid_line[IMAGE_HEIGHT],
                                    float *override_speed)
 {
+#if !ROUNDABOUT_ENABLE
+    (void)image;
+    (void)mid_line;
+    (void)override_mid_line;
+    if (override_speed != 0)
+    {
+        *override_speed = ROUNDABOUT_SPECIAL_TARGET_SPEED;
+    }
+    roundabout_element_init();
+    return 0U;
+#else
     int16_t left_edges[IMAGE_HEIGHT];   /* 当前帧真实左边界�?*/
     int16_t right_edges[IMAGE_HEIGHT];  /* 当前帧真实右边界�?*/
     int16_t centers[IMAGE_HEIGHT];      /* 当前帧真实中心�?*/
@@ -1055,6 +1227,7 @@ uint8_t roundabout_element_process(const uint8_t image[IMAGE_HEIGHT][IMAGE_WIDTH
     build_roundabout_override_mid_line(left_edges, right_edges, centers, valid_rows, mid_line, override_mid_line);  /* 生成环岛覆盖中线�?*/
     *override_speed = ROUNDABOUT_SPECIAL_TARGET_SPEED;  /* 输出环岛专用速度�?*/
     return 1U;  /* 通知主循环启用环岛专用控制�?*/
+#endif
 }
 
 /**

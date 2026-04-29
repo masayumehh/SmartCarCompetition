@@ -11,7 +11,7 @@
  */
 
 /* 图像中期望的赛道中心列 */
-#define TARGET_LINE           (IMAGE_WIDTH / 2)
+#define TARGET_LINE           ((IMAGE_WIDTH / 2) + TUNE_TARGET_LINE_OFFSET)
 
 /* 控制器类型选择编号 */
 #define CONTROLLER_STEERING   0

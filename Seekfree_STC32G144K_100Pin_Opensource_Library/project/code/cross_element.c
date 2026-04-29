@@ -35,8 +35,8 @@ typedef struct
     int16_t guide_center;    // 十字专用控制使用的引导中心列。
 } Cross_Context;
 
-static Cross_Context g_cross_ctx = {CROSS_STATE_NONE, 0U, 0U, 0U, (int16_t)(IMAGE_WIDTH / 2U)};
-static Cross_Debug_Info g_cross_debug = {CROSS_STATE_NONE, 0U, 0U, 0U, (int16_t)(IMAGE_WIDTH / 2U), 0U};
+static Cross_Context g_cross_ctx = {CROSS_STATE_NONE, 0U, 0U, 0U, (int16_t)(IMAGE_WIDTH / 2U)};  // 全局十字状态机上下文。
+static Cross_Debug_Info g_cross_debug = {CROSS_STATE_NONE, 0U, 0U, 0U, (int16_t)(IMAGE_WIDTH / 2U), 0U};  // 当前帧十字调试快照。
 
 /**
  * @brief 统计某一行非黑像素的左右边界和宽度

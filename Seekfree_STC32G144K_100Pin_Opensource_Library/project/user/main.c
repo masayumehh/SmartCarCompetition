@@ -2,253 +2,500 @@
 * STC32G144K Opensourec Library
 * Copyright (c) 2025 SEEKFREE
 *********************************************************************************************************************/
-#include "zf_common_headfile.h"  // 逐飞公共驱动总头文件。
-#include "img_processing.h"  // 图像处理模块接口。
-#include "car_control.h"  // 底盘控制模块接口。
-#include "cross_element.h"  // 十字元素状态机接口。
-#include "obstacle_element.h"  // 路障元素状态机接口。
-#include "roundabout_element.h"  // 环岛元素状态机接口。
-#include "slope_element.h"  // 坡道元素状态机接口。
-#include "tuning_params.h"  // 调参宏定义。
+#include "zf_common_headfile.h"
+#include "img_processing.h"
+#include "car_control.h"
+#include "cross_element.h"
+#include "obstacle_element.h"
+#include "roundabout_element.h"
+#include "slope_element.h"
+#include "start_line_element.h"
+#include "tuning_params.h"
 
-#define FRAME_TIMEOUT_MIN_MS        TUNE_FRAME_TIMEOUT_MIN_MS  // 帧超时下限。
-#define FRAME_TIMEOUT_MAX_MS        TUNE_FRAME_TIMEOUT_MAX_MS  // 帧超时上限。
-#define FRAME_TIMEOUT_FRAME_FACTOR  TUNE_FRAME_TIMEOUT_FRAME_FACTOR  // 控制周期到超时阈值的倍数。
-#define DEBUG_PRINT_INTERVAL_FRAMES TUNE_DEBUG_PRINT_INTERVAL_FRAMES  // 调试打印分频值。
-
-/*
- * 全局缓冲区说明：
- * g_img_output  : 图像处理输出缓冲（纯二值图）
- * g_mid_line    : 赛道中线数组，满足 g_mid_line[y] = 第 y 行的中心列号
- * g_control_dt  : 控制周期（秒），默认 0.01s，初始化后根据摄像头帧率修正
+/**
+ * @file main.c
+ * @brief 视觉车主流程入口
+ * @details
+ * 主循环每收到一帧摄像头图像，就按以下顺序运行：
+ * 1. 拷贝当前帧，避免 DMA 继续改写原始缓冲；
+ * 2. 执行图像二值化与中线提取；
+ * 3. 依次尝试发车线、环岛、路障、十字、坡道等元素逻辑；
+ * 4. 根据当前激活元素选择普通中线或覆盖中线；
+ * 5. 调用底盘控制模块输出舵机和电机命令。
  */
-static uint8_t g_img_output[IMAGE_HEIGHT][IMAGE_WIDTH];  // 图像处理输出缓冲。
-static int16_t g_mid_line[IMAGE_HEIGHT];  // 当前帧提取出的中线数组。
-static int16_t g_obstacle_override_mid_line[IMAGE_HEIGHT];  // 路障专用控制时使用的覆盖中线。
-static int16_t g_cross_override_mid_line[IMAGE_HEIGHT];  // 十字专用控制时使用的覆盖中线。
-static int16_t g_roundabout_override_mid_line[IMAGE_HEIGHT];  // 环岛专用控制时使用的覆盖中线。
-static int16_t g_slope_override_mid_line[IMAGE_HEIGHT];  // 坡道专用控制时使用的覆盖中线。
-static float g_control_dt = 0.01f;  // 控制周期，单位秒。
-static volatile uint16_t g_frame_timeout_ms = 0;  // 距离上一帧到来的超时计数。
-static uint16_t g_frame_timeout_limit_ms = FRAME_TIMEOUT_MIN_MS;  // 允许的最大帧间隔。
-static uint16_t g_debug_print_divider = 0;  // 调试打印计数器。
 
-static void control_watchdog_tick(void)
+/* 看门狗式掉帧保护参数。 */
+#define FRAME_TIMEOUT_MIN_MS         TUNE_FRAME_TIMEOUT_MIN_MS
+#define FRAME_TIMEOUT_MAX_MS         TUNE_FRAME_TIMEOUT_MAX_MS
+#define FRAME_TIMEOUT_FRAME_FACTOR   TUNE_FRAME_TIMEOUT_FRAME_FACTOR
+/* 控制周期估计的低通滤波系数。 */
+#define CONTROL_DT_FILTER_ALPHA      (0.25f)
+/* 图传和调试相关开关。 */
+#define ASSISTANT_SEND_EVERY_N_FRAMES TUNE_ASSISTANT_SEND_EVERY_N_FRAMES
+#define CAMERA_RAW_STREAM_ONLY       TUNE_CAMERA_RAW_STREAM_ONLY
+#define IMAGE_DEBUG_ONLY             TUNE_IMAGE_DEBUG_ONLY
+#define IMAGE_DEBUG_CAMERA_FPS       TUNE_IMAGE_DEBUG_CAMERA_FPS
+#define IMAGE_DEBUG_THRESHOLD_OFFSET TUNE_IMAGE_DEBUG_THRESHOLD_OFFSET
+#define IMAGE_DEBUG_THRESHOLD_MIN    TUNE_IMAGE_DEBUG_THRESHOLD_MIN
+#define IMAGE_DEBUG_THRESHOLD_MAX    TUNE_IMAGE_DEBUG_THRESHOLD_MAX
+/* 发车线重新启用检测前的延时。 */
+#define START_LINE_ENABLE_DELAY_MS   TUNE_START_LINE_ENABLE_DELAY_MS
+#define USB_DEVICE_STATE_CONFIGURED  (4U)
+extern uint8 DeviceState;
+
+/* 助手预览图的缩略尺寸。 */
+#define ASSISTANT_PREVIEW_WIDTH  96U
+#define ASSISTANT_PREVIEW_HEIGHT 60U
+
+static uint8_t far g_img_output[IMAGE_HEIGHT][IMAGE_WIDTH];            // 当前帧图像处理工作缓冲，灰度图会在此被改写成二值图。
+static int16_t g_mid_line[IMAGE_HEIGHT];                              // 普通巡线模块输出的逐行中线。
+static uint8_t g_assistant_preview[ASSISTANT_PREVIEW_HEIGHT][ASSISTANT_PREVIEW_WIDTH];  // 预留给上位机缩略图传的缓冲。
+static uint8_t g_assistant_mid_line[ASSISTANT_PREVIEW_HEIGHT];        // 预留给上位机显示的中线覆盖数据。
+static int16_t g_obstacle_override_mid_line[IMAGE_HEIGHT];            // 路障模块接管时使用的覆盖中线。
+static int16_t g_cross_override_mid_line[IMAGE_HEIGHT];               // 十字模块接管时使用的覆盖中线。
+static int16_t g_roundabout_override_mid_line[IMAGE_HEIGHT];          // 环岛模块接管时使用的覆盖中线。
+static int16_t g_slope_override_mid_line[IMAGE_HEIGHT];               // 坡道模块接管时使用的覆盖中线。
+static float g_control_dt = 0.01f;                                    // 当前估计得到的控制周期，供底盘控制和超时保护共同使用。
+static volatile uint16_t g_frame_timeout_ms = 0;                      // 距离上一帧处理完成后已经过去的毫秒数。
+static uint16_t g_frame_timeout_limit_ms = FRAME_TIMEOUT_MIN_MS;      // 依据当前帧率动态换算出的掉帧急停阈值。
+static uint8_t g_run_completed = 0U;                                  // 单圈完赛后锁定停车标志。
+static uint32_t g_start_line_elapsed_ms = 0U;                         // 自启动以来累计的运行时间，用于延后启用完赛检测。
+static uint8_t g_start_line_detection_enabled = 0U;                   // 发车线完赛检测当前是否已经允许工作。
+static uint8_t g_assistant_send_divider = 0U;                         // 图传分频计数器。
+static uint8_t g_assistant_frame_pending = 0U;                        // 当前帧是否被标记为待发送到助手。
+
+/**
+ * @brief 预留的图传初始化入口
+ * @details
+ * 当前版本暂时关闭图传，只保留函数壳，后续恢复时不用再改主流程结构。
+ */
+static void assistant_camera_init(void)
 {
-    if (g_frame_timeout_ms < 0xFFFFU)
+    /* 图传暂时关闭，保留空函数便于后续快速恢复。 */
+}
+
+/**
+ * @brief 为当前帧打上“允许图传发送”的标记
+ * @details
+ * 通过分频减少图传发送频率，避免图传挤占实际控制周期。
+ */
+static void assistant_camera_prepare_current_frame(void)
+{
+    if (ASSISTANT_SEND_EVERY_N_FRAMES > 1U)
     {
-        g_frame_timeout_ms++;  // 每 1ms 增加一次帧超时计数。
+        g_assistant_send_divider++;
+        if (g_assistant_send_divider < ASSISTANT_SEND_EVERY_N_FRAMES)
+        {
+            g_assistant_frame_pending = 0U;
+            return;
+        }
+        g_assistant_send_divider = 0U;
+    }
+
+    g_assistant_frame_pending = 1U;
+}
+
+/**
+ * @brief 清除当前帧的待发送标记
+ */
+static void assistant_camera_flush_pending_frame(void)
+{
+    g_assistant_frame_pending = 0U;
+}
+
+/**
+ * @brief 丢弃当前帧的待发送标记
+ * @details
+ * 常用于完赛停车或异常退出时，避免继续处理无意义的预览帧。
+ */
+static void assistant_camera_discard_pending_frame(void)
+{
+    g_assistant_frame_pending = 0U;
+}
+
+/**
+ * @brief 对图像调试模式下的二值阈值做限幅修正
+ * @param threshold 原始 OTSU 阈值
+ * @return 修正后的调试阈值
+ */
+static uint8_t tune_image_debug_threshold(uint8_t threshold)
+{
+    int16_t adjusted = (int16_t)threshold + (int16_t)IMAGE_DEBUG_THRESHOLD_OFFSET;
+
+    if (adjusted < (int16_t)IMAGE_DEBUG_THRESHOLD_MIN)
+    {
+        adjusted = (int16_t)IMAGE_DEBUG_THRESHOLD_MIN;
+    }
+    else if (adjusted > (int16_t)IMAGE_DEBUG_THRESHOLD_MAX)
+    {
+        adjusted = (int16_t)IMAGE_DEBUG_THRESHOLD_MAX;
+    }
+
+    return (uint8_t)adjusted;
+}
+
+/**
+ * @brief 把摄像头 DMA 帧缓冲复制到当前处理缓冲
+ * @details
+ * 先复制一份静态快照，再做图像处理，避免 DMA 正在更新时读到半帧数据。
+ */
+static void copy_camera_frame_to_output(void)
+{
+    memcpy(g_img_output[0], mt9v03x_image[0], (uint16_t)(IMAGE_WIDTH * IMAGE_HEIGHT));
+}
+
+
+/**
+ * @brief 将内部中线转换成适合上位机显示的覆盖数据
+ */
+static void update_assistant_mid_line_overlay(void)
+{
+    uint16_t y;
+
+    for (y = 0U; y < IMAGE_HEIGHT; y++)
+    {
+        int16_t mid = g_mid_line[y];
+
+        if (mid < 0)
+        {
+            g_assistant_mid_line[y] = 0U;
+        }
+        else if (mid >= (int16_t)IMAGE_WIDTH)
+        {
+            g_assistant_mid_line[y] = (uint8_t)(IMAGE_WIDTH - 1U);
+        }
+        else
+        {
+            g_assistant_mid_line[y] = (uint8_t)mid;
+        }
     }
 }
 
 /**
- * @brief 输出一行控制调试信息
- * @note 为避免串口带宽被占满，主循环只会按固定间隔调用本函数。
+ * @brief 1ms 看门狗节拍回调
+ * @details
+ * 只负责累计“当前已经多久没处理到新帧”，主循环据此决定是否急停。
  */
-static void print_control_debug_info(void)
+static void control_watchdog_tick(void)
 {
-    Car_State state;  // 当前车辆状态快照。
-    Car_Debug_Info debug_info;  // 当前调试信息快照。
-    Obstacle_Debug_Info obstacle_debug;  // 当前路障状态机调试信息。
-    Cross_Debug_Info cross_debug;  // 当前十字状态机调试信息。
-    Roundabout_Debug_Info roundabout_debug;  // 当前环岛状态机调试信息。
-    Slope_Debug_Info slope_debug;  // 当前坡道状态机调试信息。
-
-    state = get_car_state();  // 读取当前车辆状态。
-    debug_info = get_car_debug_info();  // 读取当前控制调试信息。
-    obstacle_debug = obstacle_element_get_debug_info();  // 读取当前路障状态机信息。
-    cross_debug = cross_element_get_debug_info();  // 读取当前十字状态机信息。
-    roundabout_debug = roundabout_element_get_debug_info();  // 读取当前环岛状态机信息。
-    slope_debug = slope_element_get_debug_info();  // 读取当前坡道状态机信息。
-
-    printf("mid=%u track=%u stop=%u obs=%u os=%u ps=%u\r\n",
-           debug_info.valid_mid_points,
-           debug_info.track_valid,
-           debug_info.failsafe_active,
-           obstacle_debug.state,
-           obstacle_debug.obstacle_side,
-           obstacle_debug.pass_side);
-
-    printf("oc=%d ow=%u ob=%u cross=%u wide=%u/%u/%u\r\n",
-           obstacle_debug.obstacle_center,
-           obstacle_debug.obstacle_width,
-           obstacle_debug.obstacle_bottom_row,
-           cross_debug.state,
-           cross_debug.lower_width,
-           cross_debug.middle_width,
-           cross_debug.upper_width);
-
-    printf("ring=%u dir=%u side=%u miss=%u supp=%u\r\n",
-           roundabout_debug.state,
-           roundabout_debug.direction,
-           roundabout_debug.stable_side,
-           roundabout_debug.missing_rows,
-           roundabout_debug.supplement_width);
-
-    printf("A=%d/%d B=%d/%d C=%d/%d\r\n",
-           roundabout_debug.point_a.row,
-           roundabout_debug.point_a.col,
-           roundabout_debug.point_b.row,
-           roundabout_debug.point_b.col,
-           roundabout_debug.point_c.row,
-           roundabout_debug.point_c.col);
-
-    printf("slope=%u trap=%u flat=%u sw=%u/%u/%u\r\n",
-           slope_debug.state,
-           slope_debug.trapezoid_detected,
-           slope_debug.flat_detected,
-           slope_debug.lower_width,
-           slope_debug.middle_width,
-           slope_debug.upper_width);
-
-    printf("sref=%u close=%u timeout=%u/%u\r\n",
-           slope_debug.base_lower_width,
-           slope_debug.close_rows,
-           g_frame_timeout_ms,
-           g_frame_timeout_limit_ms);
-
-    printf("steer_err=%f steer=%f\r\n",
-           debug_info.steer_error,
-           state.steering_angle);
-
-    printf("spd_fb=%f spd_tgt=%f duty=%f\r\n",
-           state.current_speed,
-           debug_info.speed_target,
-           debug_info.speed_output);
+    if (g_frame_timeout_ms < 0xFFFFU)
+    {
+        g_frame_timeout_ms++;
+    }
 }
 
-void main(void)
+/**
+ * @brief 原子读取当前帧超时计数
+ * @return 当前超时毫秒数快照
+ */
+static uint16_t get_frame_timeout_ms_snapshot(void)
 {
-    /* 1) 系统基础初始化 */
-    clock_init(SYSTEM_CLOCK_96M);    /* 系统时钟初始化（必须） */
-    debug_init();                    /* 调试串口初始化 */
+    uint8_t interrupt_state;
+    uint16_t frame_timeout_ms;
 
-    /* 2) 由摄像头默认帧率估算控制周期 dt */
-    if (MT9V03X_FPS_DEF > 0)
-    {
-        g_control_dt = 1.0f / (float)MT9V03X_FPS_DEF;  // 用默认帧率估算每帧控制周期。
-    }
+    interrupt_state = EA;
+    EA = 0;
+    frame_timeout_ms = g_frame_timeout_ms;
+    EA = interrupt_state;
 
-    g_frame_timeout_limit_ms = (uint16_t)(g_control_dt * 1000.0f * FRAME_TIMEOUT_FRAME_FACTOR);
+    return frame_timeout_ms;
+}
+
+/**
+ * @brief 读取并清零当前帧超时计数
+ * @return 自上次清零以来累计的毫秒数
+ */
+static uint16_t fetch_and_clear_frame_timeout_ms(void)
+{
+    uint8_t interrupt_state;
+    uint16_t frame_timeout_ms;
+
+    interrupt_state = EA;
+    EA = 0;
+    frame_timeout_ms = g_frame_timeout_ms;
+    g_frame_timeout_ms = 0;
+    EA = interrupt_state;
+
+    return frame_timeout_ms;
+}
+
+/**
+ * @brief 清零当前帧超时计数
+ */
+static void clear_frame_timeout_ms(void)
+{
+    uint8_t interrupt_state;
+
+    interrupt_state = EA;
+    EA = 0;
+    g_frame_timeout_ms = 0;
+    EA = interrupt_state;
+}
+
+/**
+ * @brief 根据当前控制周期刷新掉帧急停阈值
+ */
+static void refresh_frame_timeout_limit(void)
+{
+    float timeout_ms;
+
+    timeout_ms = g_control_dt * 1000.0f * FRAME_TIMEOUT_FRAME_FACTOR;
+    g_frame_timeout_limit_ms = (uint16_t)timeout_ms;
     if (g_frame_timeout_limit_ms < FRAME_TIMEOUT_MIN_MS)
     {
-        g_frame_timeout_limit_ms = FRAME_TIMEOUT_MIN_MS;  // 过小时夹到最小超时值。
+        g_frame_timeout_limit_ms = FRAME_TIMEOUT_MIN_MS;
     }
     if (g_frame_timeout_limit_ms > FRAME_TIMEOUT_MAX_MS)
     {
-        g_frame_timeout_limit_ms = FRAME_TIMEOUT_MAX_MS;  // 过大时夹到最大超时值。
+        g_frame_timeout_limit_ms = FRAME_TIMEOUT_MAX_MS;
+    }
+}
+
+/**
+ * @brief 根据两帧之间的间隔更新控制周期估计值
+ * @param frame_interval_ms 当前两帧间隔，单位毫秒
+ */
+static void update_control_dt_from_frame_interval(uint16_t frame_interval_ms)
+{
+    float measured_dt;
+
+    if (frame_interval_ms == 0U)
+    {
+        return;
     }
 
-    pit_ms_init(TIM0_PIT, 1, control_watchdog_tick);  // 配置 1ms 周期的帧超时看门狗定时器。
+    if (frame_interval_ms > FRAME_TIMEOUT_MAX_MS)
+    {
+        frame_interval_ms = FRAME_TIMEOUT_MAX_MS;
+    }
 
-    /* 3) 初始化底盘控制模块（舵机、电机、编码器、PID） */
+    measured_dt = (float)frame_interval_ms / 1000.0f;
+    if (measured_dt < TUNE_DT_MIN_VALUE)
+    {
+        measured_dt = TUNE_DT_MIN_VALUE;
+    }
+
+    g_control_dt += (measured_dt - g_control_dt) * CONTROL_DT_FILTER_ALPHA;
+    refresh_frame_timeout_limit();
+}
+
+/**
+ * @brief 程序主入口
+ * @details
+ * 初始化硬件、等待摄像头工作后，进入“取帧 -> 识别 -> 控制 -> 保护”的循环。
+ */
+void main(void)
+{
+    clock_init(SYSTEM_CLOCK_96M);
+    /* 这里只保留 USB CDC 初始化，当前不启用额外串口调试收发通道。 */
+    debug_init();
+
+    if (MT9V03X_FPS_DEF > 0)
+    {
+        g_control_dt = 1.0f / (float)MT9V03X_FPS_DEF;
+    }
+
+    refresh_frame_timeout_limit();
+    pit_ms_init(TIM0_PIT, 1, control_watchdog_tick);
+
+#if !CAMERA_RAW_STREAM_ONLY
     car_control_init();
-    obstacle_element_init();  // 初始化路障元素状态机。
-    cross_element_init();  // 初始化十字元素状态机。
-    roundabout_element_init();  // 初始化环岛元素状态机。
-    slope_element_init();  // 初始化坡道元素状态机。
-    set_target_speed(TUNE_DEFAULT_TARGET_SPEED); /* 设置基础目标速度，可按实际需求调参 */
+    obstacle_element_init();
+    cross_element_init();
+    roundabout_element_init();
+    slope_element_init();
+    start_line_element_init();
+    g_start_line_elapsed_ms = 0U;
+    g_start_line_detection_enabled = 0U;
+    set_target_speed(TUNE_DEFAULT_TARGET_SPEED);
+#endif
 
-    /* 4) 初始化摄像头，失败则循环重试 */
     while (mt9v03x_init())
     {
-        system_delay_ms(200);  // 摄像头初始化失败时延时后重试。
+        system_delay_ms(200);
     }
-    DMA_LCM_CFG &= (uint8_t)(~0x80U);  // Keil C251 不支持高号中断，这里改为主循环轮询 DMA 完成标志。
+    /* assistant_camera_init(); */  // 暂时关闭图传初始化，优先保证实车控制周期。
 
-    /* 5) 主循环：每收到一帧图像，执行一次图像处理与控制输出 */
     while (1)
     {
-        if ((DMA_LCM_STA & 0x03U) != 0U)
+        if (g_run_completed)
         {
-            mt9v03x_dma_handler();  // 轮询触发 DMA 收尾逻辑，替代 DMA_LCM 中断入口。
+            clear_frame_timeout_ms();
+            assistant_camera_discard_pending_frame();
+            car_emergency_stop();
+            if (mt9v03x_finish_flag)
+            {
+                mt9v03x_finish_flag = 0;
+            }
+            continue;
         }
 
         if (mt9v03x_finish_flag)
         {
-            float obstacle_override_speed = TUNE_DEFAULT_TARGET_SPEED;  // 路障专用控制时的目标速度。
-            float cross_override_speed = TUNE_DEFAULT_TARGET_SPEED;  // 十字专用控制时的目标速度。
-            float roundabout_override_speed = TUNE_DEFAULT_TARGET_SPEED;  // 环岛专用控制时的目标速度。
-            float slope_override_speed = TUNE_DEFAULT_TARGET_SPEED;  // 坡道专用控制时的目标速度。
-            uint8_t obstacle_active;  // 当前帧是否启用路障专用控制。
-            uint8_t cross_active;  // 当前帧是否启用十字专用控制。
-            uint8_t roundabout_active;  // 当前帧是否启用环岛专用控制。
-            uint8_t slope_active;  // 当前帧是否启用坡道专用控制。
+#if CAMERA_RAW_STREAM_ONLY
+            copy_camera_frame_to_output();
+            assistant_camera_prepare_current_frame();
+            assistant_camera_flush_pending_frame();
+            mt9v03x_finish_flag = 0;
+            fetch_and_clear_frame_timeout_ms();
+            continue;
+#else
+            float obstacle_override_speed = TUNE_DEFAULT_TARGET_SPEED;
+            float cross_override_speed = TUNE_DEFAULT_TARGET_SPEED;
+            float roundabout_override_speed = TUNE_DEFAULT_TARGET_SPEED;
+            float slope_override_speed = TUNE_DEFAULT_TARGET_SPEED;
+            uint16_t frame_interval_ms;
+#if IMAGE_DEBUG_ONLY
+            uint8_t threshold;
+            uint16_t debug_mask_y;
+            uint16_t debug_mask_x;
+#endif
+            uint8_t obstacle_active;
+              uint8_t cross_active;
+              uint8_t roundabout_active;
+              uint8_t slope_active;
 
-            mt9v03x_finish_flag = 0; /* 清帧完成标志，准备接收下一帧 */
-            g_frame_timeout_ms = 0;  // 收到新帧后清空超时计数。
+            assistant_camera_prepare_current_frame();
+            copy_camera_frame_to_output();
+#if IMAGE_DEBUG_ONLY
+            threshold = calculate_otsu_threshold(g_img_output, IMAGE_WIDTH, IMAGE_HEIGHT);
+            threshold = tune_image_debug_threshold(threshold);
+            binarize_with_threshold(g_img_output, g_img_output, IMAGE_WIDTH, IMAGE_HEIGHT, threshold);
+            for (debug_mask_y = 0U; debug_mask_y < (IMAGE_HEIGHT / 4U); debug_mask_y++)
+            {
+                for (debug_mask_x = 0U; debug_mask_x < IMAGE_WIDTH; debug_mask_x++)
+                {
+                    g_img_output[debug_mask_y][debug_mask_x] = 0U;
+                }
+            }
+            for (debug_mask_y = (uint16_t)(IMAGE_HEIGHT - (IMAGE_HEIGHT / 25U)); debug_mask_y < IMAGE_HEIGHT; debug_mask_y++)
+            {
+                for (debug_mask_x = 0U; debug_mask_x < IMAGE_WIDTH; debug_mask_x++)
+                {
+                    g_img_output[debug_mask_y][debug_mask_x] = 0U;
+                }
+            }
+            get_mid_line(g_img_output, IMAGE_WIDTH, IMAGE_HEIGHT, g_mid_line);
+            update_assistant_mid_line_overlay();
+            assistant_camera_flush_pending_frame();
+            mt9v03x_finish_flag = 0;
+            fetch_and_clear_frame_timeout_ms();
+            continue;
+#else
+            mt9v03x_finish_flag = 0;
+            frame_interval_ms = fetch_and_clear_frame_timeout_ms();
+            update_control_dt_from_frame_interval(frame_interval_ms);
+            if (g_start_line_elapsed_ms < 0xFFFFFFFFUL - (uint32_t)frame_interval_ms)
+            {
+                g_start_line_elapsed_ms += (uint32_t)frame_interval_ms;
+            }
+            else
+            {
+                g_start_line_elapsed_ms = 0xFFFFFFFFUL;
+            }
 
-            image_processing(g_img_output, g_mid_line);          /* 图像处理：得到中线数组 */
+            if (!g_start_line_detection_enabled && g_start_line_elapsed_ms >= START_LINE_ENABLE_DELAY_MS)
+            {
+                start_line_element_arm();
+                g_start_line_detection_enabled = 1U;
+            }
+
+            image_processing(g_img_output, g_mid_line);
+            update_assistant_mid_line_overlay();
+#endif
+            if (g_start_line_detection_enabled && start_line_element_process(g_img_output, g_mid_line))
+            {
+                g_run_completed = 1U;
+                assistant_camera_discard_pending_frame();
+                car_emergency_stop();
+                continue;
+            }
+
             roundabout_active = roundabout_element_process(g_img_output,
                                                            g_mid_line,
                                                            g_roundabout_override_mid_line,
-                                                           &roundabout_override_speed);  // 先给环岛模块机会建立状态，避免被路障误抢占。
+                                                           &roundabout_override_speed);
             if (roundabout_active)
             {
                 obstacle_active = 0U;
-                obstacle_element_init();  // 环岛一旦确认接管，就主动清空路障状态，避免环岛内黑洞被当成砖块继续绕行。
+                obstacle_element_init();
             }
             else
             {
                 obstacle_active = obstacle_element_process(g_img_output,
                                                            g_mid_line,
                                                            g_obstacle_override_mid_line,
-                                                           &obstacle_override_speed);  // 只有当前没有环岛接管时，才运行路障识别与绕行。
+                                                           &obstacle_override_speed);
             }
+
             cross_active = cross_element_process(g_img_output,
                                                  g_mid_line,
                                                  g_cross_override_mid_line,
-                                                 &cross_override_speed);  // 再做十字识别与专用控制结果更新。
+                                                 &cross_override_speed);
+
             if (!obstacle_active && !roundabout_active && !cross_active)
             {
                 slope_active = slope_element_process(g_img_output,
                                                      g_mid_line,
                                                      g_slope_override_mid_line,
-                                                     &slope_override_speed);  // 只有没有更强元素接管时，才运行坡道模块。
+                                                     &slope_override_speed);
             }
             else
             {
                 slope_active = 0U;
-                slope_element_init();  // 更强元素触发时，重置坡道阶段状态，避免模块间状态互相污染。
+                slope_element_init();
             }
 
             if (roundabout_active)
             {
-                set_target_speed(roundabout_override_speed);  // 环岛专用状态下切到保守目标速度。
-                car_control(g_roundabout_override_mid_line, IMAGE_HEIGHT, g_control_dt);  // 环岛状态下使用补线后的覆盖中线控制。
+                set_target_speed(roundabout_override_speed);
+                car_control(g_roundabout_override_mid_line, 0U, g_control_dt);
             }
             else if (obstacle_active)
             {
-                set_target_speed(obstacle_override_speed);  // 路障状态下切到更保守目标速度。
-                car_control(g_obstacle_override_mid_line, IMAGE_HEIGHT, g_control_dt);  // 路障状态下使用绕行覆盖中线。
+                set_target_speed(obstacle_override_speed);
+                car_control(g_obstacle_override_mid_line, 0U, g_control_dt);
             }
             else if (cross_active)
             {
-                set_target_speed(cross_override_speed);  // 十字专用状态下切到保守目标速度。
-                car_control(g_cross_override_mid_line, IMAGE_HEIGHT, g_control_dt);  // 十字状态下使用专用直行中线控制。
+                set_target_speed(cross_override_speed);
+                car_control(g_cross_override_mid_line, 0U, g_control_dt);
             }
             else if (slope_active)
             {
-                set_target_speed(slope_override_speed);  // 坡道状态下切到坡道阶段对应的目标速度。
-                car_control(g_slope_override_mid_line, IMAGE_HEIGHT, g_control_dt);  // 坡道状态下使用稳像后的覆盖中线控制。
+                set_target_speed(slope_override_speed);
+                car_control(g_slope_override_mid_line, 0U, g_control_dt);
             }
             else
             {
-                set_target_speed(TUNE_DEFAULT_TARGET_SPEED);  // 普通巡线时恢复基础目标速度。
-                car_control(g_mid_line, IMAGE_HEIGHT, g_control_dt);  // 普通状态下继续使用真实中线控制。
+                set_target_speed(TUNE_DEFAULT_TARGET_SPEED);
+                car_control(g_mid_line, 0U, g_control_dt);
             }
 
-            /* 周期性打印调试信息，便于观察图像识别和控制是否一致。 */
-            g_debug_print_divider++;  // 每处理一帧就加一次调试打印计数。
-            if (g_debug_print_divider >= DEBUG_PRINT_INTERVAL_FRAMES)
-            {
-                g_debug_print_divider = 0;
-                print_control_debug_info();
-            }
+            assistant_camera_flush_pending_frame();
+#endif
         }
-        else if (g_frame_timeout_ms >= g_frame_timeout_limit_ms)
+        else if (get_frame_timeout_ms_snapshot() >= g_frame_timeout_limit_ms)
         {
-            car_emergency_stop();    /* 长时间未收到新帧，立即切断动力 */
+#if !CAMERA_RAW_STREAM_ONLY
+            car_emergency_stop();
+#endif
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
