@@ -1,0 +1,3 @@
+project/mdk/out_file/
+project/mdk/*.uvopt
+project/mdk/*.uvgui.*
