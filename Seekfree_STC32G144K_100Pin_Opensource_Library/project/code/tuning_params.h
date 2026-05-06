@@ -13,7 +13,7 @@
 
 /* 车体与基础控制参数 */
 #define CAR_WIDTH                          120     // 车体宽度参数。
-#define MAX_STEERING_ANGLE                 10      // 保留一点更大的最大打角，给圈型弯和更急的回头弯留出余量。
+#define MAX_STEERING_ANGLE                 11      // 最大打角再放大 1 度，给十字和急弯再多一点舵量余量。
 #define MIN_SPEED                          8       // 控制允许的最小速度目标。
 #define MAX_SPEED                          30      // 控制允许的最大速度目标。
 
@@ -46,9 +46,11 @@
 #define TUNE_STRAIGHT_CURVATURE_DEADBAND   0.80f   // 小曲率死区。
 
 /* 图像处理中线提取参数 */
+#define TUNE_OTSU_SAMPLE_X_STEP            2U      // OTSU 横向隔列采样，先保留较低风险的减负。
+#define TUNE_OTSU_SAMPLE_Y_STEP            2U      // OTSU 纵向隔行采样，先保留较低风险的减负。
 #define TUNE_MIDLINE_MIN_WHITE_RUN         2U      // 边界搜索时最短连续白段长度。
-#define TUNE_MIDLINE_SEARCH_STEP           1U      // 中线边界搜索步长。
-#define TUNE_MIDLINE_SMOOTH_WINDOW         2U      // 中线平滑窗口半宽。
+#define TUNE_MIDLINE_SEARCH_STEP           1U      // 先恢复逐列搜索，保证中线提取稳定性。
+#define TUNE_MIDLINE_SMOOTH_WINDOW         2U      // 恢复原平滑窗口，减少中线抖动导致的舵机抽动。
 #define TUNE_MIDLINE_MAX_CENTER_JUMP       14      // 近场相邻行中线允许的最大跳变量，抑制远端误检和反光白块。
 #define TUNE_MIDLINE_MAX_WIDTH_JUMP        26      // 近场相邻行赛道宽度允许的最大跳变量，抑制单侧反光造成的宽度突变。
 #define TUNE_MIDLINE_UPPER_CENTER_JUMP_BONUS 14    // 上半幅允许额外更大的中线跳变，避免十字/环岛特征被连续性约束压掉。
@@ -193,14 +195,18 @@
 #define TUNE_START_LINE_ARM_CLEAR_FRAMES           6U     // 起步后连续多少帧看不到发车线才算驶离发车区。
 #define TUNE_START_LINE_DETECT_CONFIRM_FRAMES      2U     // 回到发车线时连续多少帧确认完赛。
 #define TUNE_START_LINE_ENABLE_DELAY_MS            40000U // 起步后 40 秒再启用斑马线完赛检测，避免前半圈参与识别。
+#define TUNE_START_LINE_POLL_INTERVAL              1U     // 恢复每帧检测，先保证状态机稳定。
+#define TUNE_OBSTACLE_POLL_INTERVAL                1U     // 恢复每帧检测，先保证元素识别可靠。
+#define TUNE_CROSS_POLL_INTERVAL                   1U     // 恢复每帧检测。
+#define TUNE_SLOPE_POLL_INTERVAL                   1U     // 恢复每帧检测。
 
 /* 防跑飞与保护参数 */
 #define TUNE_TRACK_VALID_MIN_POINTS        16      // 赛道有效判定最小点数。
 #define TUNE_FAILSAFE_RELEASE_FRAMES       5       // 退出保护前需要的连续有效帧数。
 
 /* 调试输出参数 */
-#define TUNE_DEBUG_PRINT_INTERVAL_FRAMES   10U     // 每隔多少帧打印一次调试信息。
-#define TUNE_ASSISTANT_SEND_EVERY_N_FRAMES 6U      // 实车调舵机阶段降低图传频率，减少对控制周期的干扰。
+#define TUNE_DEBUG_PRINT_INTERVAL_FRAMES   0U      // 当前以提帧为主，关闭周期性串口调试打印。
+#define TUNE_ASSISTANT_SEND_EVERY_N_FRAMES 6U      // 保留图传分频参数，但当前默认不启用图传。
 #define TUNE_CAMERA_RAW_STREAM_ONLY        0U      // 原始图传模式：只发送摄像头原图，先确认摄像头和图传链路正常。
 #define TUNE_IMAGE_DEBUG_ONLY              0U      // 实车控制模式：恢复元素识别与整车控制链路。
 #define TUNE_IMAGE_DEBUG_CAMERA_FPS        20U     // 图像调试模式下把摄像头帧率降下来，减小 DMA 覆盖当前帧的风险。
@@ -220,8 +226,8 @@
 /* 默认目标速度 */
 #define TUNE_DEFAULT_TARGET_SPEED          8.0f    // 打开慢速自跑测试，先给一个很低的基础目标速度。
 #define TUNE_MOTOR_MIN_DUTY_PERCENT        12.0f   // 慢速测试时下调最小占空比，尽量让小车低速平顺爬行。
-#define TUNE_CRAWL_TEST_MODE               1U      // 低速调元素阶段直接用开环恒定小占空比，避免低速闭环一顿一顿。
-#define TUNE_CRAWL_TEST_DUTY_PERCENT       5.2f    // 稍微把慢跑速度提一点，减轻过慢导致的入弯拖沓。
+#define TUNE_CRAWL_TEST_MODE               0U      // 恢复正常闭环速度控制，避免开环慢跑掩盖识图问题。
+#define TUNE_CRAWL_TEST_DUTY_PERCENT       5.2f    // 预留开环测试占空比。
 #define TUNE_TARGET_LINE_OFFSET            0       // 期望中线相对图像中心的静态偏置，直道持续跑偏时在这里微调。
 #define TUNE_STEERING_ONLY_MODE            0U      // 切到低速自跑测试模式，方便不推车复现环岛进出弯问题。
 

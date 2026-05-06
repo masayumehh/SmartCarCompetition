@@ -218,6 +218,8 @@ uint8_t calculate_otsu_threshold(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_
     uint16_t y_end;
     uint16_t x_start;
     uint16_t x_end;
+    uint16_t x_step;
+    uint16_t y_step;
 
     if (width == 0U || height == 0U) return OTSU_THRESHOLD_INIT;
 
@@ -228,10 +230,12 @@ uint8_t calculate_otsu_threshold(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint16_
     x_end = width - (width / 12U);
     if (y_end <= y_start) y_end = height;
     if (x_end <= x_start) x_end = width;
+    x_step = (TUNE_OTSU_SAMPLE_X_STEP == 0U) ? 1U : TUNE_OTSU_SAMPLE_X_STEP;
+    y_step = (TUNE_OTSU_SAMPLE_Y_STEP == 0U) ? 1U : TUNE_OTSU_SAMPLE_Y_STEP;
 
-    for (y = y_start; y < y_end; y++)
+    for (y = y_start; y < y_end; y += y_step)
     {
-        for (x = x_start; x < x_end; x++)
+        for (x = x_start; x < x_end; x += x_step)
         {
             hist[src[y][x]]++;
             total++;
@@ -520,7 +524,6 @@ void detect_edge_with_boundary(uint8_t src[IMAGE_HEIGHT][IMAGE_WIDTH], uint8_t d
 void image_processing(uint8_t output_buffer[IMAGE_HEIGHT][IMAGE_WIDTH], int16_t mid_line_buffer[IMAGE_HEIGHT])
 {
     uint16_t mask_y;
-    uint16_t mask_x;
     uint16_t top_mask_rows;
     uint16_t bottom_mask_rows;
 
@@ -534,17 +537,11 @@ void image_processing(uint8_t output_buffer[IMAGE_HEIGHT][IMAGE_WIDTH], int16_t 
     // 只做更轻的上下遮罩，保留元素识别需要的远端和中上部赛道信息。
     for (mask_y = 0U; mask_y < top_mask_rows; mask_y++)
     {
-        for (mask_x = 0U; mask_x < IMAGE_WIDTH; mask_x++)
-        {
-            output_buffer[mask_y][mask_x] = 0U;
-        }
+        memset(output_buffer[mask_y], 0, IMAGE_WIDTH);
     }
     for (mask_y = (uint16_t)(IMAGE_HEIGHT - bottom_mask_rows); mask_y < IMAGE_HEIGHT; mask_y++)
     {
-        for (mask_x = 0U; mask_x < IMAGE_WIDTH; mask_x++)
-        {
-            output_buffer[mask_y][mask_x] = 0U;
-        }
+        memset(output_buffer[mask_y], 0, IMAGE_WIDTH);
     }
 
     get_mid_line(output_buffer, IMAGE_WIDTH, IMAGE_HEIGHT, mid_line_buffer);  // 从二值图提取赛道中线。
